@@ -171,6 +171,15 @@ export const WorldInfoRecommenderSettings: FC = () => {
   const t = UI_STRINGS[selectedLanguage] ?? UI_STRINGS[DEFAULT_LANGUAGE];
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<string>(SYSTEM_PROMPT_KEYS[0]);
 
+  // Ensure directApi config exists (for backwards compatibility with old settings)
+  const directApiConfig = settings.directApi ?? {
+    enabled: false,
+    apiType: 'openai' as const,
+    apiUrl: '',
+    apiKey: '',
+    modelName: '',
+  };
+
   // Centralized function to update state and persist settings
   const updateAndRefresh = useCallback(
     (updater: (currentSettings: ExtensionSettings) => void) => {
@@ -487,9 +496,12 @@ export const WorldInfoRecommenderSettings: FC = () => {
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <input
             type="checkbox"
-            checked={settings.directApi.enabled}
+            checked={directApiConfig.enabled}
             onChange={(e) => {
               updateAndRefresh((s) => {
+                if (!s.directApi) {
+                  s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                }
                 s.directApi.enabled = e.target.checked;
               });
             }}
@@ -497,14 +509,17 @@ export const WorldInfoRecommenderSettings: FC = () => {
           <span>{t.directApiEnabled}</span>
         </label>
 
-        {settings.directApi.enabled && (
+        {directApiConfig.enabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <label style={{ minWidth: '100px' }}>{t.directApiType}:</label>
               <select
-                value={settings.directApi.apiType}
+                value={directApiConfig.apiType}
                 onChange={(e) => {
                   updateAndRefresh((s) => {
+                    if (!s.directApi) {
+                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                    }
                     s.directApi.apiType = e.target.value as DirectApiType;
                   });
                 }}
@@ -520,9 +535,12 @@ export const WorldInfoRecommenderSettings: FC = () => {
               <label style={{ minWidth: '100px' }}>{t.directApiUrl}:</label>
               <input
                 type="text"
-                value={settings.directApi.apiUrl}
+                value={directApiConfig.apiUrl}
                 onChange={(e) => {
                   updateAndRefresh((s) => {
+                    if (!s.directApi) {
+                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                    }
                     s.directApi.apiUrl = e.target.value;
                   });
                 }}
@@ -535,9 +553,12 @@ export const WorldInfoRecommenderSettings: FC = () => {
               <label style={{ minWidth: '100px' }}>{t.directApiKey}:</label>
               <input
                 type="password"
-                value={settings.directApi.apiKey}
+                value={directApiConfig.apiKey}
                 onChange={(e) => {
                   updateAndRefresh((s) => {
+                    if (!s.directApi) {
+                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                    }
                     s.directApi.apiKey = e.target.value;
                   });
                 }}
@@ -550,9 +571,12 @@ export const WorldInfoRecommenderSettings: FC = () => {
               <label style={{ minWidth: '100px' }}>{t.directApiModel}:</label>
               <input
                 type="text"
-                value={settings.directApi.modelName}
+                value={directApiConfig.modelName}
                 onChange={(e) => {
                   updateAndRefresh((s) => {
+                    if (!s.directApi) {
+                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                    }
                     s.directApi.modelName = e.target.value;
                   });
                 }}
@@ -564,7 +588,7 @@ export const WorldInfoRecommenderSettings: FC = () => {
             <STButton
               style={{ marginTop: '5px' }}
               onClick={async () => {
-                const result = await testDirectApiConnection(settings.directApi);
+                const result = await testDirectApiConnection(directApiConfig);
                 if (result.success) {
                   st_echo('success', t.directApiTestSuccess);
                 } else {
