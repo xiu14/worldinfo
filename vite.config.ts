@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 /**
  * A custom Vite plugin to correctly handle SillyTavern's runtime imports.
@@ -35,14 +34,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       sillyTavernExternalsPlugin(),
-      viteStaticCopy({
-        targets: [
-          {
-            src: 'templates/**/*',   // Copy all files from templates directory
-            dest: 'templates'        // To dist/templates/
-          }
-        ]
-      })
     ],
     // This `define` block is necessary to prevent 'process is not defined' errors
     // in dependencies that check `process.env.NODE_ENV`.
