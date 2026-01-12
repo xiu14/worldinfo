@@ -1,0 +1,104 @@
+import { FC, useMemo } from 'react';
+import { diffWords } from 'diff';
+import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
+import { SupportedLanguage, settingsManager } from '../settings.js';
+
+interface CompareEntryPopupProps {
+  originalEntry: WIEntry;
+  newEntry: WIEntry;
+}
+
+type CompareLabels = {
+  title: string;
+  originalTitle: string;
+  newTitle: string;
+};
+
+const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
+
+const COMPARE_LABELS: Record<SupportedLanguage, CompareLabels> = {
+  en: {
+    title: 'Compare Changes',
+    originalTitle: 'Original Content',
+    newTitle: 'New Content (Suggestion)',
+  },
+  'zh-CN': {
+    title: '对比修改',
+    originalTitle: '原始内容',
+    newTitle: '新内容（建议）',
+  },
+};
+
+export const CompareEntryPopup: FC<CompareEntryPopupProps> = ({ originalEntry, newEntry }) => {
+  const settings = settingsManager.getSettings();
+  const language: SupportedLanguage = (settings?.language ?? DEFAULT_LANGUAGE) as SupportedLanguage;
+  const labels = COMPARE_LABELS[language] ?? COMPARE_LABELS[DEFAULT_LANGUAGE];
+
+  // useMemo will calculate the diff only when the entries change.
+  const diffResult = useMemo(() => {
+    const diff = diffWords(originalEntry.content, newEntry.content);
+    let originalHtml = '';
+    let newHtml = '';
+
+    diff.forEach((part) => {
+      // Style based on whether the part was added, removed, or is common
+      const style = part.added
+        ? 'color: green; background-color: #e6ffed;'
+        : part.removed
+          ? 'color: red; background-color: #ffebe9;'
+          : 'color: grey;';
+
+      const span = `<span style="${style}">${part.value}</span>`;
+
+      if (!part.added) {
+        originalHtml += span;
+      }
+      if (!part.removed) {
+        newHtml += span;
+      }
+    });
+
+    return { originalHtml, newHtml };
+  }, [originalEntry, newEntry]);
+
+  return (
+    <div className="compare-popup" style={{ padding: '10px' }}>
+      <h3>{labels.title}</h3>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+        {/* Original Content Column */}
+        <div style={{ flex: '1' }}>
+          <h4>{labels.originalTitle}</h4>
+          <div
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'monospace',
+              padding: '1rem',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              maxHeight: '400px',
+              overflowY: 'auto',
+            }}
+            dangerouslySetInnerHTML={{ __html: diffResult.originalHtml }}
+          />
+        </div>
+
+        {/* New Content Column */}
+        <div style={{ flex: '1' }}>
+          <h4>{labels.newTitle}</h4>
+          <div
+            style={{
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'monospace',
+              padding: '1rem',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              maxHeight: '400px',
+              overflowY: 'auto',
+            }}
+            dangerouslySetInnerHTML={{ __html: diffResult.newHtml }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};

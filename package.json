@@ -1,0 +1,43 @@
+{
+    "name": "sillytavern-worldinfo-recommender",
+    "version": "1.0.0",
+    "description": "A SillyTavern extension for world info management.",
+    "type": "module",
+    "main": "src/index.tsx",
+    "scripts": {
+        "dev": "vite build --watch --mode development",
+        "build": "tsc && vite build --mode production",
+        "test": "vitest",
+        "prettify": "prettier --write \"src/**/*.ts\" \"templates/**/*.html\" \"src/**/*.tsx\""
+    },
+    "keywords": [],
+    "author": "bmen25124",
+    "license": "MIT",
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.0",
+        "@types/diff": "^7.0.2",
+        "@types/jquery": "^3.5.32",
+        "@types/node": "^22.13.1",
+        "@types/react": "^19.1.11",
+        "@types/react-dom": "^19.1.8",
+        "@types/showdown": "^2.0.6",
+        "@vitejs/plugin-react": "^5.1.0",
+        "jsdom": "^24.1.1",
+        "prettier": "^3.4.2",
+        "sass": "^1.83.4",
+        "typescript": "^5.7.3",
+        "vite": "^7.1.12",
+        "vitest": "^4.0.6"
+    },
+    "dependencies": {
+        "diff": "^8.0.1",
+        "fast-xml-parser": "^5.0.9",
+        "handlebars": "^4.7.8",
+        "react": "^19.1.1",
+        "react-dom": "^19.1.1",
+        "showdown": "^2.1.0",
+        "sillytavern-utils-lib": "^1.0.62",
+        "zod": "^4.1.11"
+    }
+}
