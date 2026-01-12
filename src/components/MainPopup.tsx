@@ -21,7 +21,8 @@ import {
 } from 'sillytavern-utils-lib/config';
 import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
 import { runWorldInfoRecommendation, Session } from '../generate.js';
-import { ExtensionSettings, SUPPORTED_LANGUAGES, SupportedLanguage, settingsManager } from '../settings.js';
+import { DirectApiType, ExtensionSettings, SUPPORTED_LANGUAGES, SupportedLanguage, settingsManager } from '../settings.js';
+import { testDirectApiConnection } from '../direct-api.js';
 import { Character } from 'sillytavern-utils-lib/types';
 import { RegexScriptData } from 'sillytavern-utils-lib/types/regex';
 import { SuggestedEntry } from './SuggestedEntry.js';
@@ -121,6 +122,15 @@ type UILabels = {
   importEntriesDialogTitle: string;
   languageButtonLabel: (languageLabel: string) => string;
   languageButtonTooltip: string;
+  // Direct API
+  directApiEnabled: string;
+  directApiType: string;
+  directApiUrl: string;
+  directApiKey: string;
+  directApiModel: string;
+  directApiTest: string;
+  directApiTestSuccess: string;
+  directApiTestFail: string;
 };
 
 type UIMessages = {
@@ -217,6 +227,15 @@ const UI_LABELS: Record<SupportedLanguage, UILabels> = {
     importEntriesDialogTitle: 'Select Entries to Import for Revision',
     languageButtonLabel: (languageLabel: string) => `Language: ${languageLabel}`,
     languageButtonTooltip: 'Switch interface language',
+    // Direct API
+    directApiEnabled: 'Use Direct API (bypass Connection Manager)',
+    directApiType: 'API Format',
+    directApiUrl: 'API URL',
+    directApiKey: 'API Key / Token',
+    directApiModel: 'Model Name',
+    directApiTest: 'Test',
+    directApiTestSuccess: 'Connection successful!',
+    directApiTestFail: 'Connection failed',
   },
   'zh-CN': {
     loadingText: '加载中...',
@@ -279,6 +298,15 @@ const UI_LABELS: Record<SupportedLanguage, UILabels> = {
     importEntriesDialogTitle: '选择要导入修改的条目',
     languageButtonLabel: (languageLabel: string) => `界面语言：${languageLabel}`,
     languageButtonTooltip: '切换界面语言',
+    // Direct API
+    directApiEnabled: '使用直接 API（绕过 Connection Manager）',
+    directApiType: 'API 格式',
+    directApiUrl: 'API 地址',
+    directApiKey: 'API Key / Token',
+    directApiModel: '模型名称',
+    directApiTest: '测试',
+    directApiTestSuccess: '连接成功！',
+    directApiTestFail: '连接失败',
   },
 };
 
@@ -340,6 +368,15 @@ export const MainPopup: FC = () => {
   const labels = UI_LABELS[fallbackLanguage];
   const messages = UI_MESSAGES[fallbackLanguage];
   const currentLanguageLabel = LANGUAGE_LABELS[fallbackLanguage];
+
+  // Ensure directApi config exists (for backwards compatibility)
+  const directApiConfig = settings.directApi ?? {
+    enabled: false,
+    apiType: 'openai' as const,
+    apiUrl: '',
+    apiKey: '',
+    modelName: '',
+  };
   const [session, setSession] = useState<Session>({
     suggestedEntries: {},
     blackListedEntries: [],
@@ -553,7 +590,8 @@ export const MainPopup: FC = () => {
 
   const handleGeneration = useCallback(
     async (continueFrom?: { worldName: string; entry: WIEntry; prompt: string; mode: 'continue' | 'revise' }) => {
-      if (!settings.profileId) return st_echo('warning', messages.needProfile);
+      // Skip profileId check if using direct API
+      if (!directApiConfig.enabled && !settings.profileId) return st_echo('warning', messages.needProfile);
 
       const userPrompt = continueFrom?.prompt ?? settings.promptPresets[settings.promptPreset].content;
 
@@ -691,10 +729,10 @@ export const MainPopup: FC = () => {
         }
       } catch (error: any) {
         console.error('[WorldInfoRecommender] Generation error:', error);
-        
+
         let friendlyMessage: string;
         const rawMessage = error instanceof Error ? error.message : String(error);
-        
+
         // Check if it's a timeout error
         if (rawMessage === messages.requestTimeout) {
           friendlyMessage = messages.requestTimeout;
@@ -705,7 +743,7 @@ export const MainPopup: FC = () => {
         } else {
           friendlyMessage = `请求失败: ${rawMessage}`;
         }
-        
+
         setLastError(friendlyMessage);
         st_echo('error', friendlyMessage);
       } finally {
@@ -1064,11 +1102,131 @@ export const MainPopup: FC = () => {
           <div className="column">
             <div className="card">
               <h3>{labels.connectionProfileTitle}</h3>
-              <STConnectionProfileSelect
-                initialSelectedProfileId={settings.profileId}
-                // @ts-ignore
-                onChange={(profile) => updateSetting('profileId', profile?.id)}
-              />
+
+              {/* Direct API Toggle */}
+              <label className="checkbox_label" style={{ marginBottom: '10px' }}>
+                <input
+                  type="checkbox"
+                  checked={directApiConfig.enabled}
+                  onChange={(e) => {
+                    const newSettings = settingsManager.getSettings();
+                    if (!newSettings.directApi) {
+                      newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                    }
+                    newSettings.directApi.enabled = e.target.checked;
+                    settingsManager.saveSettings();
+                    forceUpdate();
+                  }}
+                />
+                {labels.directApiEnabled}
+              </label>
+
+              {directApiConfig.enabled ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ minWidth: '80px' }}>{labels.directApiType}:</label>
+                    <select
+                      className="text_pole"
+                      value={directApiConfig.apiType}
+                      onChange={(e) => {
+                        const newSettings = settingsManager.getSettings();
+                        if (!newSettings.directApi) {
+                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        }
+                        newSettings.directApi.apiType = e.target.value as DirectApiType;
+                        settingsManager.saveSettings();
+                        forceUpdate();
+                      }}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="openai">OpenAI</option>
+                      <option value="gemini">Gemini</option>
+                      <option value="antigravity">Antigravity</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ minWidth: '80px' }}>{labels.directApiUrl}:</label>
+                    <input
+                      type="text"
+                      className="text_pole"
+                      value={directApiConfig.apiUrl}
+                      onChange={(e) => {
+                        const newSettings = settingsManager.getSettings();
+                        if (!newSettings.directApi) {
+                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        }
+                        newSettings.directApi.apiUrl = e.target.value;
+                        settingsManager.saveSettings();
+                        forceUpdate();
+                      }}
+                      placeholder="https://api.example.com/v1"
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ minWidth: '80px' }}>{labels.directApiKey}:</label>
+                    <input
+                      type="password"
+                      className="text_pole"
+                      value={directApiConfig.apiKey}
+                      onChange={(e) => {
+                        const newSettings = settingsManager.getSettings();
+                        if (!newSettings.directApi) {
+                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        }
+                        newSettings.directApi.apiKey = e.target.value;
+                        settingsManager.saveSettings();
+                        forceUpdate();
+                      }}
+                      placeholder="sk-..."
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <label style={{ minWidth: '80px' }}>{labels.directApiModel}:</label>
+                    <input
+                      type="text"
+                      className="text_pole"
+                      value={directApiConfig.modelName}
+                      onChange={(e) => {
+                        const newSettings = settingsManager.getSettings();
+                        if (!newSettings.directApi) {
+                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        }
+                        newSettings.directApi.modelName = e.target.value;
+                        settingsManager.saveSettings();
+                        forceUpdate();
+                      }}
+                      placeholder="gpt-4 / gemini-pro / ..."
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+
+                  <STButton
+                    style={{ marginTop: '5px' }}
+                    onClick={async () => {
+                      const result = await testDirectApiConnection(directApiConfig);
+                      if (result.success) {
+                        st_echo('success', labels.directApiTestSuccess);
+                      } else {
+                        st_echo('error', `${labels.directApiTestFail}: ${result.message}`);
+                      }
+                    }}
+                  >
+                    <i className="fa-solid fa-plug" style={{ marginRight: '5px' }} />
+                    {labels.directApiTest}
+                  </STButton>
+                </div>
+              ) : (
+                <STConnectionProfileSelect
+                  initialSelectedProfileId={settings.profileId}
+                  // @ts-ignore
+                  onChange={(profile) => updateSetting('profileId', profile?.id)}
+                />
+              )}
             </div>
             <div className="card">
               <h3>{labels.contextToSendTitle}</h3>
