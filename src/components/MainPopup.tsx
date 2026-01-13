@@ -602,17 +602,23 @@ export const MainPopup: FC = () => {
       setLastError(null);
       setIsGenerating(true);
       try {
-        const profile = globalContext.extensionSettings.connectionManager?.profiles?.find(
-          (p) => p.id === settings.profileId,
-        );
-        if (!profile) throw new Error('Connection profile not found.');
+        // For direct API mode, we don't need a connection profile
+        // Use dummy/default values for buildPromptOptions
+        let profile: any = null;
+        if (!directApiConfig.enabled) {
+          profile = globalContext.extensionSettings.connectionManager?.profiles?.find(
+            (p) => p.id === settings.profileId,
+          );
+          if (!profile) throw new Error('Connection profile not found.');
+        }
 
         const avatar = getAvatar();
         const buildPromptOptions: BuildPromptOptions = {
-          presetName: profile.preset,
-          contextName: profile.context,
-          instructName: profile.instruct,
-          syspromptName: profile.sysprompt,
+          // When using direct API, use default preset names or undefined
+          presetName: profile?.preset ?? undefined,
+          contextName: profile?.context ?? undefined,
+          instructName: profile?.instruct ?? undefined,
+          syspromptName: profile?.sysprompt ?? undefined,
           ignoreCharacterFields: !settings.contextToSend.charCard,
           ignoreWorldInfo: true,
           ignoreAuthorNote: !settings.contextToSend.authorNote,

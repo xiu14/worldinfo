@@ -27081,15 +27081,17 @@ const Hn = SillyTavern.getContext(), YT = 3e5, FT = "en", l0 = {
         return Ce("warning", u.needPrompt);
       O(null), N(!0);
       try {
-        const ve = Hn.extensionSettings.connectionManager?.profiles?.find(
+        let ve = null;
+        if (!p.enabled && (ve = Hn.extensionSettings.connectionManager?.profiles?.find(
           (oe) => oe.id === r.profileId
-        );
-        if (!ve) throw new Error("Connection profile not found.");
+        ), !ve))
+          throw new Error("Connection profile not found.");
         const ge = al(), he = {
-          presetName: ve.preset,
-          contextName: ve.context,
-          instructName: ve.instruct,
-          syspromptName: ve.sysprompt,
+          // When using direct API, use default preset names or undefined
+          presetName: ve?.preset ?? void 0,
+          contextName: ve?.context ?? void 0,
+          instructName: ve?.instruct ?? void 0,
+          syspromptName: ve?.sysprompt ?? void 0,
           ignoreCharacterFields: !r.contextToSend.charCard,
           ignoreWorldInfo: !0,
           ignoreAuthorNote: !r.contextToSend.authorNote,
