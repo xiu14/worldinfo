@@ -80,27 +80,30 @@ async function sendOpenAIRequest(
     console.log('[WorldInfoRecommender] OpenAI API response:', JSON.stringify(data).substring(0, 500));
 
     // Try multiple response formats
+    // Note: We use `=== undefined` instead of `!content` to allow empty strings
     let content = data.choices?.[0]?.message?.content;
 
     // Some APIs might use different structures
-    if (!content && data.choices?.[0]?.text) {
+    if (content === undefined && data.choices?.[0]?.text !== undefined) {
         content = data.choices[0].text;
     }
-    if (!content && data.content) {
+    if (content === undefined && data.content !== undefined) {
         content = data.content;
     }
-    if (!content && data.output) {
+    if (content === undefined && data.output !== undefined) {
         content = data.output;
     }
-    if (!content && data.response) {
+    if (content === undefined && data.response !== undefined) {
         content = data.response;
     }
     // For models that return delta in non-streaming mode
-    if (!content && data.choices?.[0]?.delta?.content) {
+    if (content === undefined && data.choices?.[0]?.delta?.content !== undefined) {
         content = data.choices[0].delta.content;
     }
 
-    if (!content) {
+    // Only throw if content is truly undefined (not just empty string)
+    // Empty string can happen with very low max_tokens, but the connection is still valid
+    if (content === undefined || content === null) {
         console.error('[WorldInfoRecommender] No content found in response. Full data:', JSON.stringify(data));
         throw new Error('No content in OpenAI response');
     }
