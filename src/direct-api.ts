@@ -75,9 +75,33 @@ async function sendOpenAIRequest(
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+
+    // Log the response for debugging
+    console.log('[WorldInfoRecommender] OpenAI API response:', JSON.stringify(data).substring(0, 500));
+
+    // Try multiple response formats
+    let content = data.choices?.[0]?.message?.content;
+
+    // Some APIs might use different structures
+    if (!content && data.choices?.[0]?.text) {
+        content = data.choices[0].text;
+    }
+    if (!content && data.content) {
+        content = data.content;
+    }
+    if (!content && data.output) {
+        content = data.output;
+    }
+    if (!content && data.response) {
+        content = data.response;
+    }
+    // For models that return delta in non-streaming mode
+    if (!content && data.choices?.[0]?.delta?.content) {
+        content = data.choices[0].delta.content;
+    }
 
     if (!content) {
+        console.error('[WorldInfoRecommender] No content found in response. Full data:', JSON.stringify(data));
         throw new Error('No content in OpenAI response');
     }
 
@@ -231,5 +255,100 @@ export async function testDirectApiConnection(config: DirectApiConfig): Promise<
         return { success: true, message: 'Connection successful!' };
     } catch (error: any) {
         return { success: false, message: error.message || 'Connection failed' };
+    }
+}
+
+/**
+ * Fetch available models from the API
+ */
+export async function fetchModelsList(config: DirectApiConfig): Promise<{ success: boolean; models: string[]; message: string }> {
+    if (!config.apiUrl) {
+        return { success: false, models: [], message: 'API URL is not configured' };
+    }
+    if (!config.apiKey) {
+        return { success: false, models: [], message: 'API Key is not configured' };
+    }
+
+    try {
+        let baseUrl = config.apiUrl.replace(/\/+$/, ''); // Remove trailing slashes
+        let endpoint: string;
+        let headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        switch (config.apiType) {
+            case 'openai':
+            case 'antigravity':
+                // OpenAI format: GET /v1/models
+                if (baseUrl.endsWith('/v1')) {
+                    endpoint = `${baseUrl}/models`;
+                } else if (baseUrl.includes('/chat/completions')) {
+                    endpoint = baseUrl.replace('/chat/completions', '/models');
+                } else {
+                    endpoint = `${baseUrl}/v1/models`;
+                }
+                headers['Authorization'] = `Bearer ${config.apiKey}`;
+                break;
+            case 'gemini':
+                // Gemini format: GET /v1beta/models
+                if (baseUrl.includes(':generateContent')) {
+                    endpoint = baseUrl.replace(/\/models\/[^/]+:generateContent.*/, '/models');
+                } else {
+                    endpoint = `${baseUrl}/v1beta/models`;
+                }
+                endpoint += `?key=${config.apiKey}`;
+                break;
+            default:
+                return { success: false, models: [], message: `Unsupported API type: ${config.apiType}` };
+        }
+
+        console.log(`[WorldInfoRecommender] Fetching models from: ${endpoint}`);
+
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return { success: false, models: [], message: `API error (${response.status}): ${errorText}` };
+        }
+
+        const data = await response.json();
+        let models: string[] = [];
+
+        // Parse response based on API type
+        if (config.apiType === 'gemini') {
+            // Gemini format: { models: [{ name: "models/gemini-pro", ... }] }
+            if (Array.isArray(data.models)) {
+                models = data.models.map((m: any) => {
+                    const name = m.name || m.id || '';
+                    // Remove "models/" prefix if present
+                    return name.replace(/^models\//, '');
+                }).filter((m: string) => m);
+            }
+        } else {
+            // OpenAI format: { data: [{ id: "gpt-4", ... }] }
+            if (Array.isArray(data.data)) {
+                models = data.data.map((m: any) => m.id || m.name || '').filter((m: string) => m);
+            } else if (Array.isArray(data.models)) {
+                models = data.models.map((m: any) => m.id || m.name || '').filter((m: string) => m);
+            } else if (Array.isArray(data)) {
+                models = data.map((m: any) => (typeof m === 'string' ? m : m.id || m.name || '')).filter((m: string) => m);
+            }
+        }
+
+        // Sort models alphabetically
+        models.sort();
+
+        if (models.length === 0) {
+            console.log('[WorldInfoRecommender] Models response:', JSON.stringify(data));
+            return { success: false, models: [], message: 'No models found. Check console for raw response.' };
+        }
+
+        return { success: true, models, message: `Found ${models.length} models` };
+    } catch (error: any) {
+        console.error('[WorldInfoRecommender] Error fetching models:', error);
+        return { success: false, models: [], message: error.message || 'Failed to fetch models' };
     }
 }

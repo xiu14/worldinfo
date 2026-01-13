@@ -22,7 +22,7 @@ import {
 import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
 import { runWorldInfoRecommendation, Session } from '../generate.js';
 import { DirectApiType, ExtensionSettings, SUPPORTED_LANGUAGES, SupportedLanguage, settingsManager } from '../settings.js';
-import { testDirectApiConnection } from '../direct-api.js';
+import { testDirectApiConnection, fetchModelsList } from '../direct-api.js';
 import { Character } from 'sillytavern-utils-lib/types';
 import { RegexScriptData } from 'sillytavern-utils-lib/types/regex';
 import { SuggestedEntry } from './SuggestedEntry.js';
@@ -393,6 +393,8 @@ export const MainPopup: FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isGlobalReviseOpen, setIsGlobalReviseOpen] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   const selectEntriesPopupRef = useRef<SelectEntriesPopupRef>(null);
   const importPopupRef = useRef<SelectEntriesPopupRef>(null);
@@ -1193,38 +1195,83 @@ export const MainPopup: FC = () => {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <label style={{ minWidth: '80px' }}>{labels.directApiModel}:</label>
-                    <input
-                      type="text"
-                      className="text_pole"
-                      value={directApiConfig.modelName}
-                      onChange={(e) => {
-                        const newSettings = settingsManager.getSettings();
-                        if (!newSettings.directApi) {
-                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                        }
-                        newSettings.directApi.modelName = e.target.value;
-                        settingsManager.saveSettings();
-                        forceUpdate();
-                      }}
-                      placeholder="gpt-4 / gemini-pro / ..."
-                      style={{ flex: 1 }}
-                    />
+                    {availableModels.length > 0 ? (
+                      <select
+                        className="text_pole"
+                        value={directApiConfig.modelName}
+                        onChange={(e) => {
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi) {
+                            newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                          }
+                          newSettings.directApi.modelName = e.target.value;
+                          settingsManager.saveSettings();
+                          forceUpdate();
+                        }}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="">-- 选择模型 --</option>
+                        {availableModels.map((model) => (
+                          <option key={model} value={model}>{model}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        className="text_pole"
+                        value={directApiConfig.modelName}
+                        onChange={(e) => {
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi) {
+                            newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                          }
+                          newSettings.directApi.modelName = e.target.value;
+                          settingsManager.saveSettings();
+                          forceUpdate();
+                        }}
+                        placeholder="gpt-4 / gemini-pro / ..."
+                        style={{ flex: 1 }}
+                      />
+                    )}
                   </div>
 
-                  <STButton
-                    style={{ marginTop: '5px' }}
-                    onClick={async () => {
-                      const result = await testDirectApiConnection(directApiConfig);
-                      if (result.success) {
-                        st_echo('success', labels.directApiTestSuccess);
-                      } else {
-                        st_echo('error', `${labels.directApiTestFail}: ${result.message}`);
-                      }
-                    }}
-                  >
-                    <i className="fa-solid fa-plug" style={{ marginRight: '5px' }} />
-                    {labels.directApiTest}
-                  </STButton>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+                    <STButton
+                      style={{ flex: 1 }}
+                      disabled={isFetchingModels}
+                      onClick={async () => {
+                        setIsFetchingModels(true);
+                        try {
+                          const result = await fetchModelsList(directApiConfig);
+                          if (result.success && result.models.length > 0) {
+                            setAvailableModels(result.models);
+                            st_echo('success', result.message);
+                          } else {
+                            st_echo('error', result.message);
+                          }
+                        } finally {
+                          setIsFetchingModels(false);
+                        }
+                      }}
+                    >
+                      <i className={`fa-solid ${isFetchingModels ? 'fa-spinner fa-spin' : 'fa-list'}`} style={{ marginRight: '5px' }} />
+                      {isFetchingModels ? '获取中...' : '获取模型'}
+                    </STButton>
+                    <STButton
+                      style={{ flex: 1 }}
+                      onClick={async () => {
+                        const result = await testDirectApiConnection(directApiConfig);
+                        if (result.success) {
+                          st_echo('success', labels.directApiTestSuccess);
+                        } else {
+                          st_echo('error', `${labels.directApiTestFail}: ${result.message}`);
+                        }
+                      }}
+                    >
+                      <i className="fa-solid fa-plug" style={{ marginRight: '5px' }} />
+                      {labels.directApiTest}
+                    </STButton>
+                  </div>
                 </div>
               ) : (
                 <STConnectionProfileSelect
