@@ -204,9 +204,34 @@ async function sendAntigravityRequest(
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!content) {
+    // Log the response for debugging
+    console.log('[WorldInfoRecommender] Antigravity API response:', JSON.stringify(data).substring(0, 500));
+
+    // Try Gemini format first
+    let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    // Some responses might have different structures
+    if (content === undefined && data.candidates?.[0]?.content?.parts) {
+        // Try to join all parts
+        const parts = data.candidates[0].content.parts;
+        if (Array.isArray(parts)) {
+            content = parts.map((p: any) => p.text || '').join('');
+        }
+    }
+    // Try OpenAI format as fallback (some proxies might use this)
+    if (content === undefined && data.choices?.[0]?.message?.content !== undefined) {
+        content = data.choices[0].message.content;
+    }
+    if (content === undefined && data.content !== undefined) {
+        content = data.content;
+    }
+    if (content === undefined && data.response !== undefined) {
+        content = data.response;
+    }
+
+    if (content === undefined || content === null) {
+        console.error('[WorldInfoRecommender] No content found in Antigravity response. Full data:', JSON.stringify(data));
         throw new Error('No content in Antigravity response');
     }
 
