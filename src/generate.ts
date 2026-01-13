@@ -90,18 +90,41 @@ export async function runWorldInfoRecommendation({
       throw new Error(`Could not determine API for profile "${profile.name}". Please configure an API in Connection Manager or select a valid profile.`);
     }
   } else {
-    // For direct API mode, we still need selectedApi for buildPrompt
-    // Try to find any active API
-    for (const [_apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP)) {
-      if (apiValue && apiValue.selected) {
-        selectedApi = apiValue.selected;
-        break;
+    // For direct API mode, we need a valid API type for buildPrompt
+    // First, try to get main_api from SillyTavern context
+    const mainApi = (globalContext as any).main_api;
+    if (mainApi) {
+      // Try to find the selected API from CONNECT_API_MAP using main_api
+      const apiMapEntry = globalContext.CONNECT_API_MAP?.[mainApi];
+      if (apiMapEntry && apiMapEntry.selected) {
+        selectedApi = apiMapEntry.selected;
       }
     }
-    // If no active API found, use a reasonable default
+
+    // If still no API, try to find any active API from the map
     if (!selectedApi) {
-      selectedApi = 'openai'; // Default fallback
+      for (const [_apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP || {})) {
+        if (apiValue && apiValue.selected) {
+          selectedApi = apiValue.selected;
+          break;
+        }
+      }
     }
+
+    // Final fallback: use 'chat_completion' which is a common ST internal API type
+    if (!selectedApi) {
+      // Try using the first available API from the map's keys
+      const apiKeys = Object.keys(globalContext.CONNECT_API_MAP || {});
+      if (apiKeys.length > 0) {
+        const firstApi = globalContext.CONNECT_API_MAP[apiKeys[0]];
+        if (firstApi && firstApi.selected) {
+          selectedApi = firstApi.selected;
+        }
+      }
+    }
+
+    // If absolutely nothing works, we can't use buildPrompt for chat history
+    // In this case, selectedApi remains undefined and we'll handle it below
   }
 
   const templateData: Record<string, any> = {};
@@ -168,7 +191,12 @@ export async function runWorldInfoRecommendation({
     for (const mainContext of mainContextList) {
       // Chat history is exception, since it is not a template
       if (mainContext.promptName === 'chatHistory') {
-        messages.push(...(await buildPrompt(selectedApi, buildPromptOptions)).result);
+        // Skip chat history if no valid API is available (e.g., in direct API mode without ST configured)
+        if (selectedApi) {
+          messages.push(...(await buildPrompt(selectedApi, buildPromptOptions)).result);
+        } else {
+          console.warn('[WorldInfoRecommender] Skipping chat history: no valid API type available');
+        }
         continue;
       }
 
