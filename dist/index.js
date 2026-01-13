@@ -14290,7 +14290,9 @@ function q0(t) {
   }));
 }
 async function _S(t, r, s) {
-  const a = t.apiUrl.endsWith("/") ? t.apiUrl : t.apiUrl + "/", u = a.endsWith("chat/completions") || a.endsWith("chat/completions/") ? a : `${a}v1/chat/completions`, c = await fetch(u, {
+  let a = t.apiUrl.replace(/\/+$/, ""), u;
+  a.endsWith("/chat/completions") || a.endsWith("chat/completions") ? u = a : a.endsWith("/v1") ? u = `${a}/chat/completions` : u = `${a}/v1/chat/completions`;
+  const c = await fetch(u, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

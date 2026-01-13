@@ -40,10 +40,20 @@ async function sendOpenAIRequest(
     messages: Message[],
     maxTokens: number,
 ): Promise<DirectApiResponse> {
-    const url = config.apiUrl.endsWith('/') ? config.apiUrl : config.apiUrl + '/';
-    const endpoint = url.endsWith('chat/completions') || url.endsWith('chat/completions/')
-        ? url
-        : `${url}v1/chat/completions`;
+    // Build the endpoint URL, handling various input formats:
+    // - "http://example.com" -> "http://example.com/v1/chat/completions"
+    // - "http://example.com/v1" -> "http://example.com/v1/chat/completions"
+    // - "http://example.com/v1/chat/completions" -> unchanged
+    let baseUrl = config.apiUrl.replace(/\/+$/, ''); // Remove trailing slashes
+
+    let endpoint: string;
+    if (baseUrl.endsWith('/chat/completions') || baseUrl.endsWith('chat/completions')) {
+        endpoint = baseUrl;
+    } else if (baseUrl.endsWith('/v1')) {
+        endpoint = `${baseUrl}/chat/completions`;
+    } else {
+        endpoint = `${baseUrl}/v1/chat/completions`;
+    }
 
     const response = await fetch(endpoint, {
         method: 'POST',
