@@ -17897,6 +17897,10 @@ async function eb({
   {
     for (const z of p) {
       if (z.promptName === "chatHistory") {
+        if (g.enabled) {
+          console.log("[WorldInfoRecommender] Direct API mode: skipping chat history (buildPrompt not available)");
+          continue;
+        }
         _ ? C.push(...(await E0(_, s)).result) : console.warn("[WorldInfoRecommender] Skipping chat history: no valid API type available");
         continue;
       }

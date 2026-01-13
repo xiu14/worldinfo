@@ -191,7 +191,13 @@ export async function runWorldInfoRecommendation({
     for (const mainContext of mainContextList) {
       // Chat history is exception, since it is not a template
       if (mainContext.promptName === 'chatHistory') {
-        // Skip chat history if no valid API is available (e.g., in direct API mode without ST configured)
+        // Skip chat history completely in direct API mode to avoid buildPrompt dependency
+        // In direct API mode, we don't have a valid ST API type for buildPrompt
+        if (directApiConfig.enabled) {
+          console.log('[WorldInfoRecommender] Direct API mode: skipping chat history (buildPrompt not available)');
+          continue;
+        }
+        // For non-direct API mode, use buildPrompt if we have a valid API
         if (selectedApi) {
           messages.push(...(await buildPrompt(selectedApi, buildPromptOptions)).result);
         } else {
