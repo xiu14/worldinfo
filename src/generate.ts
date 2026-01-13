@@ -48,36 +48,60 @@ export async function runWorldInfoRecommendation({
   maxResponseToken,
   continueFrom,
 }: RunWorldInfoRecommendationParams): Promise<Record<string, WIEntry[]>> {
-  if (!profileId) {
-    throw new Error('No connection profile selected.');
-  }
-  const context = SillyTavern.getContext();
-  const profile = context.extensionSettings.connectionManager?.profiles?.find((profile) => profile.id === profileId);
-  if (!profile) {
-    throw new Error(`Connection profile with ID "${profileId}" not found.`);
-  }
+  const directApiConfig = settingsManager.getSettings().directApi;
 
-  // Try to get API from profile, fall back to current ST API if not set
-  let selectedApi: string | undefined;
-
-  if (profile.api && globalContext.CONNECT_API_MAP[profile.api]) {
-    selectedApi = globalContext.CONNECT_API_MAP[profile.api].selected;
-  } else {
-    // Fallback: use SillyTavern's currently active API
-    console.warn(`[WorldInfoRecommender] Profile "${profile.name}" has no API configured, using ST default.`);
-
-    // Try to find the active API by checking which one is currently selected
-    for (const [apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP)) {
-      if (apiValue && apiValue.selected) {
-        selectedApi = apiValue.selected;
-        console.log(`[WorldInfoRecommender] Using fallback API: ${apiKey} -> ${selectedApi}`);
-        break;
-      }
+  // Only check profileId if not using direct API
+  if (!directApiConfig.enabled) {
+    if (!profileId) {
+      throw new Error('No connection profile selected.');
     }
   }
 
-  if (!selectedApi) {
-    throw new Error(`Could not determine API for profile "${profile.name}". Please configure an API in Connection Manager or select a valid profile.`);
+  const context = SillyTavern.getContext();
+
+  // These variables are only needed for Connection Manager mode
+  let profile: any = null;
+  let selectedApi: string | undefined = undefined;
+
+  if (!directApiConfig.enabled) {
+    profile = context.extensionSettings.connectionManager?.profiles?.find((p) => p.id === profileId);
+    if (!profile) {
+      throw new Error(`Connection profile with ID "${profileId}" not found.`);
+    }
+
+    // Try to get API from profile, fall back to current ST API if not set
+    if (profile.api && globalContext.CONNECT_API_MAP[profile.api]) {
+      selectedApi = globalContext.CONNECT_API_MAP[profile.api].selected;
+    } else {
+      // Fallback: use SillyTavern's currently active API
+      console.warn(`[WorldInfoRecommender] Profile "${profile.name}" has no API configured, using ST default.`);
+
+      // Try to find the active API by checking which one is currently selected
+      for (const [apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP)) {
+        if (apiValue && apiValue.selected) {
+          selectedApi = apiValue.selected;
+          console.log(`[WorldInfoRecommender] Using fallback API: ${apiKey} -> ${selectedApi}`);
+          break;
+        }
+      }
+    }
+
+    if (!selectedApi) {
+      throw new Error(`Could not determine API for profile "${profile.name}". Please configure an API in Connection Manager or select a valid profile.`);
+    }
+  } else {
+    // For direct API mode, we still need selectedApi for buildPrompt
+    // Try to find any active API
+    for (const [_apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP)) {
+      if (apiValue && apiValue.selected) {
+        selectedApi = apiValue.selected;
+        break;
+      }
+    }
+    // If no active API found, use a reasonable default
+    if (!selectedApi) {
+      selectedApi = 'openai'; // Default fallback
+    }
   }
 
   const templateData: Record<string, any> = {};
@@ -189,7 +213,6 @@ export async function runWorldInfoRecommendation({
   // console.log("Sending messages:", messages);
 
   let response: ExtractedData;
-  const directApiConfig = settingsManager.getSettings().directApi;
 
   try {
     if (directApiConfig.enabled) {
