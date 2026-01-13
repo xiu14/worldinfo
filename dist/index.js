@@ -17913,7 +17913,7 @@ function JS() {
     valueProvider: (s) => t.find((a) => a.name?.includes(s))?.name
   }));
 }
-const Oi = "SillyTavern-WorldInfo-Recommender", WS = "0.3.0", ew = "F_1.5", tw = {
+const Oi = "worldinfo", WS = "0.3.0", ew = "F_1.5", tw = {
   EXTENSION: "worldInfoRecommender"
 }, Mi = ["en", "zh-CN"], Ju = [
   "stDescription",

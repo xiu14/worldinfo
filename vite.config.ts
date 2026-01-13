@@ -31,10 +31,7 @@ export default defineConfig(({ mode }) => {
   const entryPath = path.resolve(__dirname, 'src/index.tsx');
 
   return {
-    plugins: [
-      react(),
-      sillyTavernExternalsPlugin(),
-    ],
+    plugins: [react(), sillyTavernExternalsPlugin()],
     // This `define` block is necessary to prevent 'process is not defined' errors
     // in dependencies that check `process.env.NODE_ENV`.
     define: {
