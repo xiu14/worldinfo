@@ -1,6 +1,6 @@
 /**
  * Direct API Module - Bypasses ConnectionManagerRequestService
- * Supports OpenAI, Gemini, and Antigravity API formats
+ * Supports OpenAI and Gemini API formats
  */
 
 import { Message } from 'sillytavern-utils-lib';
@@ -163,80 +163,6 @@ async function sendGeminiRequest(
     return { content };
 }
 
-/**
- * Send request using Antigravity format (Google Cloud Code sandbox)
- * Uses Gemini-like format with Bearer token auth
- * POST /v1internal:generateContent
- */
-async function sendAntigravityRequest(
-    config: DirectApiConfig,
-    messages: Message[],
-    maxTokens: number,
-): Promise<DirectApiResponse> {
-    // Build the endpoint URL
-    let endpoint: string;
-    const baseUrl = config.apiUrl.replace(/\/$/, '');
-
-    if (baseUrl.includes(':generateContent')) {
-        endpoint = baseUrl;
-    } else {
-        // Antigravity uses /v1beta for standard Gemini format with Bearer auth
-        endpoint = `${baseUrl}/v1beta/models/${config.modelName}:generateContent`;
-    }
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-            contents: convertToGeminiContents(messages),
-            generationConfig: {
-                maxOutputTokens: maxTokens,
-            },
-        }),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Antigravity API error (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    // Log the response for debugging
-    console.log('[WorldInfoRecommender] Antigravity API response:', JSON.stringify(data).substring(0, 500));
-
-    // Try Gemini format first
-    let content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    // Some responses might have different structures
-    if (content === undefined && data.candidates?.[0]?.content?.parts) {
-        // Try to join all parts
-        const parts = data.candidates[0].content.parts;
-        if (Array.isArray(parts)) {
-            content = parts.map((p: any) => p.text || '').join('');
-        }
-    }
-    // Try OpenAI format as fallback (some proxies might use this)
-    if (content === undefined && data.choices?.[0]?.message?.content !== undefined) {
-        content = data.choices[0].message.content;
-    }
-    if (content === undefined && data.content !== undefined) {
-        content = data.content;
-    }
-    if (content === undefined && data.response !== undefined) {
-        content = data.response;
-    }
-
-    if (content === undefined || content === null) {
-        console.error('[WorldInfoRecommender] No content found in Antigravity response. Full data:', JSON.stringify(data));
-        throw new Error('No content in Antigravity response');
-    }
-
-    return { content };
-}
 
 /**
  * Main entry point - sends request based on API type
@@ -263,8 +189,6 @@ export async function sendDirectApiRequest(
             return sendOpenAIRequest(config, messages, maxTokens);
         case 'gemini':
             return sendGeminiRequest(config, messages, maxTokens);
-        case 'antigravity':
-            return sendAntigravityRequest(config, messages, maxTokens);
         default:
             throw new Error(`Unsupported API type: ${config.apiType}`);
     }
@@ -306,7 +230,6 @@ export async function fetchModelsList(config: DirectApiConfig): Promise<{ succes
 
         switch (config.apiType) {
             case 'openai':
-            case 'antigravity':
                 // OpenAI format: GET /v1/models
                 if (baseUrl.endsWith('/v1')) {
                     endpoint = `${baseUrl}/models`;

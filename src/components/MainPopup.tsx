@@ -1130,9 +1130,9 @@ export const MainPopup: FC = () => {
               </label>
 
               {directApiConfig.enabled ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ minWidth: '80px' }}>{labels.directApiType}:</label>
+                <div className="direct-api-config">
+                  <div className="direct-api-field">
+                    <label>{labels.directApiType}:</label>
                     <select
                       className="text_pole"
                       value={directApiConfig.apiType}
@@ -1145,16 +1145,14 @@ export const MainPopup: FC = () => {
                         settingsManager.saveSettings();
                         forceUpdate();
                       }}
-                      style={{ flex: 1 }}
                     >
                       <option value="openai">OpenAI</option>
                       <option value="gemini">Gemini</option>
-                      <option value="antigravity">Antigravity</option>
                     </select>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ minWidth: '80px' }}>{labels.directApiUrl}:</label>
+                  <div className="direct-api-field">
+                    <label>{labels.directApiUrl}:</label>
                     <input
                       type="text"
                       className="text_pole"
@@ -1169,12 +1167,11 @@ export const MainPopup: FC = () => {
                         forceUpdate();
                       }}
                       placeholder="https://api.example.com/v1"
-                      style={{ flex: 1 }}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ minWidth: '80px' }}>{labels.directApiKey}:</label>
+                  <div className="direct-api-field">
+                    <label>{labels.directApiKey}:</label>
                     <input
                       type="password"
                       className="text_pole"
@@ -1189,12 +1186,11 @@ export const MainPopup: FC = () => {
                         forceUpdate();
                       }}
                       placeholder="sk-..."
-                      style={{ flex: 1 }}
                     />
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <label style={{ minWidth: '80px' }}>{labels.directApiModel}:</label>
+                  <div className="direct-api-field">
+                    <label>{labels.directApiModel}:</label>
                     {availableModels.length > 0 ? (
                       <select
                         className="text_pole"
@@ -1208,7 +1204,6 @@ export const MainPopup: FC = () => {
                           settingsManager.saveSettings();
                           forceUpdate();
                         }}
-                        style={{ flex: 1 }}
                       >
                         <option value="">-- 选择模型 --</option>
                         {availableModels.map((model) => (
@@ -1230,14 +1225,12 @@ export const MainPopup: FC = () => {
                           forceUpdate();
                         }}
                         placeholder="gpt-4 / gemini-pro / ..."
-                        style={{ flex: 1 }}
                       />
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+                  <div className="direct-api-buttons">
                     <STButton
-                      style={{ flex: 1 }}
                       disabled={isFetchingModels}
                       onClick={async () => {
                         setIsFetchingModels(true);
@@ -1258,7 +1251,6 @@ export const MainPopup: FC = () => {
                       {isFetchingModels ? '获取中...' : '获取模型'}
                     </STButton>
                     <STButton
-                      style={{ flex: 1 }}
                       onClick={async () => {
                         const result = await testDirectApiConnection(directApiConfig);
                         if (result.success) {

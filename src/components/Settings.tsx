@@ -13,7 +13,6 @@ import {
   convertToVariableName,
   DEFAULT_PROMPT_CONTENTS,
   DEFAULT_SETTINGS,
-  DirectApiType,
   ExtensionSettings,
   MainContextPromptBlock,
   MainContextTemplatePreset,
@@ -25,7 +24,6 @@ import {
   SYSTEM_PROMPT_KEYS,
 } from '../settings.js';
 import { useForceUpdate } from '../hooks/useForceUpdate.js';
-import { testDirectApiConnection } from '../direct-api.js';
 
 type UILabels = {
   languageLabel: string;
@@ -49,16 +47,6 @@ type UILabels = {
   resetEverythingConfirmMessage: string;
   resetEverythingSuccess: string;
   noPromptSelectedWarning: string;
-  // Direct API strings
-  directApiTitle: string;
-  directApiEnabled: string;
-  directApiType: string;
-  directApiUrl: string;
-  directApiKey: string;
-  directApiModel: string;
-  directApiTest: string;
-  directApiTestSuccess: string;
-  directApiTestFail: string;
 };
 
 const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
@@ -96,16 +84,6 @@ const UI_STRINGS: Record<SupportedLanguage, UILabels> = {
     resetEverythingConfirmMessage: 'Are you sure? This cannot be undone.',
     resetEverythingSuccess: 'Settings reset. The UI has been updated.',
     noPromptSelectedWarning: 'No prompt selected.',
-    // Direct API strings
-    directApiTitle: 'Direct API Configuration',
-    directApiEnabled: 'Use Direct API (bypass Connection Manager)',
-    directApiType: 'API Format',
-    directApiUrl: 'API URL',
-    directApiKey: 'API Key / Token',
-    directApiModel: 'Model Name',
-    directApiTest: 'Test Connection',
-    directApiTestSuccess: 'Connection successful!',
-    directApiTestFail: 'Connection failed',
   },
   'zh-CN': {
     languageLabel: '语言',
@@ -129,16 +107,6 @@ const UI_STRINGS: Record<SupportedLanguage, UILabels> = {
     resetEverythingConfirmMessage: '确定要重置所有设置吗？此操作无法撤销。',
     resetEverythingSuccess: '设置已重置，界面已更新。',
     noPromptSelectedWarning: '未选择任何提示词。',
-    // Direct API strings
-    directApiTitle: '直接 API 配置',
-    directApiEnabled: '使用直接 API（绕过 Connection Manager）',
-    directApiType: 'API 格式',
-    directApiUrl: 'API 地址',
-    directApiKey: 'API Key / Token',
-    directApiModel: '模型名称',
-    directApiTest: '测试连接',
-    directApiTestSuccess: '连接成功！',
-    directApiTestFail: '连接失败',
   },
 };
 
@@ -171,14 +139,6 @@ export const WorldInfoRecommenderSettings: FC = () => {
   const t = UI_STRINGS[selectedLanguage] ?? UI_STRINGS[DEFAULT_LANGUAGE];
   const [selectedSystemPrompt, setSelectedSystemPrompt] = useState<string>(SYSTEM_PROMPT_KEYS[0]);
 
-  // Ensure directApi config exists (for backwards compatibility with old settings)
-  const directApiConfig = settings.directApi ?? {
-    enabled: false,
-    apiType: 'openai' as const,
-    apiUrl: '',
-    apiKey: '',
-    modelName: '',
-  };
 
   // Centralized function to update state and persist settings
   const updateAndRefresh = useCallback(
@@ -489,119 +449,7 @@ export const WorldInfoRecommenderSettings: FC = () => {
         <p className="settings-language__description">{t.languageDescription}</p>
       </div>
 
-      {/* Direct API Configuration */}
-      <div style={{ marginTop: '15px', padding: '10px', border: '1px solid var(--SmartThemeBorderColor)', borderRadius: '5px' }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{t.directApiTitle}</div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <input
-            type="checkbox"
-            checked={directApiConfig.enabled}
-            onChange={(e) => {
-              updateAndRefresh((s) => {
-                if (!s.directApi) {
-                  s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                }
-                s.directApi.enabled = e.target.checked;
-              });
-            }}
-          />
-          <span>{t.directApiEnabled}</span>
-        </label>
-
-        {directApiConfig.enabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ minWidth: '100px' }}>{t.directApiType}:</label>
-              <select
-                value={directApiConfig.apiType}
-                onChange={(e) => {
-                  updateAndRefresh((s) => {
-                    if (!s.directApi) {
-                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                    }
-                    s.directApi.apiType = e.target.value as DirectApiType;
-                  });
-                }}
-                style={{ flex: 1 }}
-              >
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Gemini</option>
-                <option value="antigravity">Antigravity</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ minWidth: '100px' }}>{t.directApiUrl}:</label>
-              <input
-                type="text"
-                value={directApiConfig.apiUrl}
-                onChange={(e) => {
-                  updateAndRefresh((s) => {
-                    if (!s.directApi) {
-                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                    }
-                    s.directApi.apiUrl = e.target.value;
-                  });
-                }}
-                placeholder="https://api.example.com/v1"
-                style={{ flex: 1 }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ minWidth: '100px' }}>{t.directApiKey}:</label>
-              <input
-                type="password"
-                value={directApiConfig.apiKey}
-                onChange={(e) => {
-                  updateAndRefresh((s) => {
-                    if (!s.directApi) {
-                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                    }
-                    s.directApi.apiKey = e.target.value;
-                  });
-                }}
-                placeholder="sk-..."
-                style={{ flex: 1 }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label style={{ minWidth: '100px' }}>{t.directApiModel}:</label>
-              <input
-                type="text"
-                value={directApiConfig.modelName}
-                onChange={(e) => {
-                  updateAndRefresh((s) => {
-                    if (!s.directApi) {
-                      s.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
-                    }
-                    s.directApi.modelName = e.target.value;
-                  });
-                }}
-                placeholder="gpt-4 / gemini-pro / ..."
-                style={{ flex: 1 }}
-              />
-            </div>
-
-            <STButton
-              style={{ marginTop: '5px' }}
-              onClick={async () => {
-                const result = await testDirectApiConnection(directApiConfig);
-                if (result.success) {
-                  st_echo('success', t.directApiTestSuccess);
-                } else {
-                  st_echo('error', `${t.directApiTestFail}: ${result.message}`);
-                }
-              }}
-            >
-              <i className="fa-solid fa-plug" style={{ marginRight: '5px' }} />
-              {t.directApiTest}
-            </STButton>
-          </div>
-        )}
-      </div>
 
       <div style={{ marginTop: '10px' }}>
         <div className="title_restorable">

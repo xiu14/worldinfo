@@ -1135,3 +1135,64 @@ dialog:has(.select-entries-popup) {
         }
     }
 }
+
+/* Direct API Configuration Styles */
+#worldInfoRecommenderPopup .direct-api-config {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#worldInfoRecommenderPopup .direct-api-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    label {
+        min-width: 90px;
+        flex-shrink: 0;
+        font-weight: 500;
+    }
+
+    input,
+    select {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+#worldInfoRecommenderPopup .direct-api-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+
+    .menu_button {
+        flex: 1;
+    }
+}
+
+/* Mobile responsive styles for Direct API */
+@media (max-width: 600px) {
+    #worldInfoRecommenderPopup .direct-api-field {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+
+        label {
+            min-width: auto;
+        }
+
+        input,
+        select {
+            width: 100%;
+        }
+    }
+
+    #worldInfoRecommenderPopup .direct-api-buttons {
+        flex-direction: column;
+
+        .menu_button {
+            width: 100%;
+        }
+    }
+}

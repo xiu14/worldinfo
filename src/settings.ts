@@ -65,7 +65,7 @@ export interface MainContextTemplatePreset {
 }
 
 // Direct API Configuration (bypasses ConnectionManager)
-export type DirectApiType = 'openai' | 'gemini' | 'antigravity';
+export type DirectApiType = 'openai' | 'gemini';
 
 export interface DirectApiConfig {
   enabled: boolean;
