@@ -1,6 +1,6 @@
 /**
  * Direct API Module - Bypasses ConnectionManagerRequestService
- * Supports OpenAI and Gemini API formats
+ * Supports OpenAI and Gemini API formats with streaming support
  */
 
 import { Message } from 'sillytavern-utils-lib';
@@ -9,6 +9,10 @@ import { DirectApiConfig } from './settings.js';
 export interface DirectApiResponse {
     content: string;
     error?: string;
+}
+
+export interface StreamCallbacks {
+    onChunk: (data: { chunk: string; fullText: string; receivedChars: number }) => void;
 }
 
 /**
@@ -32,13 +36,15 @@ function convertToGeminiContents(messages: Message[]): Array<{ role: string; par
 }
 
 /**
- * Send request using OpenAI format
+ * Send request using OpenAI format with streaming support
  * POST /v1/chat/completions
  */
 async function sendOpenAIRequest(
     config: DirectApiConfig,
     messages: Message[],
     maxTokens: number,
+    streamCallbacks?: StreamCallbacks,
+    signal?: AbortSignal,
 ): Promise<DirectApiResponse> {
     // Build the endpoint URL, handling various input formats:
     // - "http://example.com" -> "http://example.com/v1/chat/completions"
@@ -55,6 +61,8 @@ async function sendOpenAIRequest(
         endpoint = `${baseUrl}/v1/chat/completions`;
     }
 
+    const useStream = !!streamCallbacks;
+
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -65,8 +73,9 @@ async function sendOpenAIRequest(
             model: config.modelName,
             messages: convertToOpenAIMessages(messages),
             max_tokens: maxTokens,
-            stream: false,
+            stream: useStream,
         }),
+        signal,
     });
 
     if (!response.ok) {
@@ -74,6 +83,60 @@ async function sendOpenAIRequest(
         throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
     }
 
+    // Handle streaming response
+    if (useStream && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+                    if (!trimmedLine.startsWith('data: ')) continue;
+
+                    try {
+                        const jsonStr = trimmedLine.slice(6); // Remove 'data: ' prefix
+                        const data = JSON.parse(jsonStr);
+                        const delta = data.choices?.[0]?.delta?.content || '';
+                        if (delta) {
+                            fullText += delta;
+                            streamCallbacks.onChunk({
+                                chunk: delta,
+                                fullText,
+                                receivedChars: fullText.length,
+                            });
+                        }
+                    } catch (e) {
+                        // Ignore parse errors for incomplete JSON
+                        console.debug('[WorldInfoRecommender] Stream parse error:', e);
+                    }
+                }
+            }
+        } catch (error) {
+            if (signal?.aborted) {
+                throw new DOMException('Request aborted by user', 'AbortError');
+            }
+            throw error;
+        }
+
+        if (!fullText) {
+            throw new Error('No content received from streaming response');
+        }
+
+        return { content: fullText };
+    }
+
+    // Handle non-streaming response
     const data = await response.json();
 
     // Log the response for debugging
@@ -112,27 +175,36 @@ async function sendOpenAIRequest(
 }
 
 /**
- * Send request using Gemini format
- * POST /v1beta/models/{model}:generateContent
+ * Send request using Gemini format with streaming support
+ * POST /v1beta/models/{model}:streamGenerateContent or :generateContent
  */
 async function sendGeminiRequest(
     config: DirectApiConfig,
     messages: Message[],
     maxTokens: number,
+    streamCallbacks?: StreamCallbacks,
+    signal?: AbortSignal,
 ): Promise<DirectApiResponse> {
     // Build the endpoint URL
-    let endpoint: string;
     const baseUrl = config.apiUrl.replace(/\/$/, '');
+    const useStream = !!streamCallbacks;
 
-    if (baseUrl.includes(':generateContent')) {
-        endpoint = baseUrl;
+    let endpoint: string;
+    if (baseUrl.includes(':generateContent') || baseUrl.includes(':streamGenerateContent')) {
+        endpoint = useStream ? baseUrl.replace(':generateContent', ':streamGenerateContent') : baseUrl;
     } else {
-        endpoint = `${baseUrl}/v1beta/models/${config.modelName}:generateContent`;
+        const action = useStream ? 'streamGenerateContent' : 'generateContent';
+        endpoint = `${baseUrl}/v1beta/models/${config.modelName}:${action}`;
     }
 
     // Add API key as query param if not in URL
     if (!endpoint.includes('key=')) {
         endpoint += `?key=${config.apiKey}`;
+    }
+    
+    // For streaming, add alt=sse parameter
+    if (useStream && !endpoint.includes('alt=')) {
+        endpoint += '&alt=sse';
     }
 
     const response = await fetch(endpoint, {
@@ -146,6 +218,7 @@ async function sendGeminiRequest(
                 maxOutputTokens: maxTokens,
             },
         }),
+        signal,
     });
 
     if (!response.ok) {
@@ -153,6 +226,60 @@ async function sendGeminiRequest(
         throw new Error(`Gemini API error (${response.status}): ${errorText}`);
     }
 
+    // Handle streaming response
+    if (useStream && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let buffer = '';
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) continue;
+                    if (!trimmedLine.startsWith('data: ')) continue;
+
+                    try {
+                        const jsonStr = trimmedLine.slice(6); // Remove 'data: ' prefix
+                        const data = JSON.parse(jsonStr);
+                        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        if (text) {
+                            fullText += text;
+                            streamCallbacks.onChunk({
+                                chunk: text,
+                                fullText,
+                                receivedChars: fullText.length,
+                            });
+                        }
+                    } catch (e) {
+                        // Ignore parse errors for incomplete JSON
+                        console.debug('[WorldInfoRecommender] Gemini stream parse error:', e);
+                    }
+                }
+            }
+        } catch (error) {
+            if (signal?.aborted) {
+                throw new DOMException('Request aborted by user', 'AbortError');
+            }
+            throw error;
+        }
+
+        if (!fullText) {
+            throw new Error('No content received from Gemini streaming response');
+        }
+
+        return { content: fullText };
+    }
+
+    // Handle non-streaming response
     const data = await response.json();
     const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
@@ -171,6 +298,8 @@ export async function sendDirectApiRequest(
     config: DirectApiConfig,
     messages: Message[],
     maxTokens: number,
+    streamCallbacks?: StreamCallbacks,
+    signal?: AbortSignal,
 ): Promise<DirectApiResponse> {
     if (!config.apiUrl) {
         throw new Error('API URL is not configured');
@@ -182,13 +311,13 @@ export async function sendDirectApiRequest(
         throw new Error('Model name is not configured');
     }
 
-    console.log(`[WorldInfoRecommender] Sending direct API request (${config.apiType})`);
+    console.log(`[WorldInfoRecommender] Sending direct API request (${config.apiType})${streamCallbacks ? ' with streaming' : ''}`);
 
     switch (config.apiType) {
         case 'openai':
-            return sendOpenAIRequest(config, messages, maxTokens);
+            return sendOpenAIRequest(config, messages, maxTokens, streamCallbacks, signal);
         case 'gemini':
-            return sendGeminiRequest(config, messages, maxTokens);
+            return sendGeminiRequest(config, messages, maxTokens, streamCallbacks, signal);
         default:
             throw new Error(`Unsupported API type: ${config.apiType}`);
     }

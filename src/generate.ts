@@ -5,7 +5,7 @@ import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
 import { st_createWorldInfoEntry } from 'sillytavern-utils-lib/config';
 import { ExtensionSettings, MessageRole, settingsManager } from './settings.js';
 import { RegexScriptData } from 'sillytavern-utils-lib/types/regex';
-import { sendDirectApiRequest } from './direct-api.js';
+import { sendDirectApiRequest, StreamCallbacks } from './direct-api.js';
 
 import * as Handlebars from 'handlebars';
 
@@ -35,6 +35,8 @@ export interface RunWorldInfoRecommendationParams {
   }[];
   maxResponseToken: number;
   continueFrom?: { worldName: string; entry: WIEntry; mode: 'continue' | 'revise' };
+  streamCallbacks?: StreamCallbacks;
+  signal?: AbortSignal;
 }
 
 export async function runWorldInfoRecommendation({
@@ -47,6 +49,8 @@ export async function runWorldInfoRecommendation({
   mainContextList,
   maxResponseToken,
   continueFrom,
+  streamCallbacks,
+  signal,
 }: RunWorldInfoRecommendationParams): Promise<Record<string, WIEntry[]>> {
   const directApiConfig = settingsManager.getSettings().directApi;
 
@@ -250,9 +254,9 @@ export async function runWorldInfoRecommendation({
 
   try {
     if (directApiConfig.enabled) {
-      // Use Direct API (bypasses ConnectionManager)
-      console.log('[WorldInfoRecommender] Using Direct API:', directApiConfig.apiType);
-      const directResponse = await sendDirectApiRequest(directApiConfig, messages, maxResponseToken);
+      // Use Direct API (bypasses ConnectionManager) with optional streaming
+      console.log('[WorldInfoRecommender] Using Direct API:', directApiConfig.apiType, streamCallbacks ? '(streaming)' : '');
+      const directResponse = await sendDirectApiRequest(directApiConfig, messages, maxResponseToken, streamCallbacks, signal);
       response = { content: directResponse.content } as ExtractedData;
     } else {
       // Use ConnectionManager (original behavior)

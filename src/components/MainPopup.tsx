@@ -156,8 +156,6 @@ type UIMessages = {
   globalReviseApplied: string;
 };
 
-const REQUEST_TIMEOUT_MS = 300000;
-
 const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
@@ -395,6 +393,9 @@ export const MainPopup: FC = () => {
   const [lastError, setLastError] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  // Streaming progress state
+  const [streamProgress, setStreamProgress] = useState<{ receivedChars: number; preview: string } | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const selectEntriesPopupRef = useRef<SelectEntriesPopupRef>(null);
   const importPopupRef = useRef<SelectEntriesPopupRef>(null);
@@ -603,6 +604,12 @@ export const MainPopup: FC = () => {
 
       setLastError(null);
       setIsGenerating(true);
+      setStreamProgress(null);
+
+      // Create abort controller for this request
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       try {
         // For direct API mode, we don't need a connection profile
         // Use dummy/default values for buildPromptOptions
@@ -672,32 +679,35 @@ export const MainPopup: FC = () => {
           ? { worldName: continueFrom.worldName, entry: continueFrom.entry, mode: continueFrom.mode }
           : undefined;
 
-        const resultingEntries = await new Promise<Record<string, WIEntry[]>>((resolve, reject) => {
-          const timeoutId = window.setTimeout(() => {
-            reject(new Error(messages.requestTimeout));
-          }, REQUEST_TIMEOUT_MS);
-
-          runWorldInfoRecommendation({
-            profileId: settings.profileId,
-            userPrompt: userPrompt,
-            buildPromptOptions,
-            session,
-            entriesGroupByWorldName,
-            promptSettings,
-            mainContextList: settings.mainContextTemplatePresets[settings.mainContextTemplatePreset].prompts
-              .filter((p) => p.enabled)
-              .map((p) => ({ promptName: p.promptName, role: p.role })),
-            maxResponseToken: settings.maxResponseToken,
-            continueFrom: continueFromPayload,
-          })
-            .then((result) => {
-              clearTimeout(timeoutId);
-              resolve(result);
-            })
-            .catch((error) => {
-              clearTimeout(timeoutId);
-              reject(error);
+        // Stream callbacks for direct API mode
+        const streamCallbacks = directApiConfig.enabled ? {
+          onChunk: (data: { chunk: string; fullText: string; receivedChars: number }) => {
+            // Update progress with received chars and a preview of the content
+            const previewLength = 200;
+            const preview = data.fullText.length > previewLength
+              ? '...' + data.fullText.slice(-previewLength)
+              : data.fullText;
+            setStreamProgress({
+              receivedChars: data.receivedChars,
+              preview: preview,
             });
+          },
+        } : undefined;
+
+        const resultingEntries = await runWorldInfoRecommendation({
+          profileId: settings.profileId,
+          userPrompt: userPrompt,
+          buildPromptOptions,
+          session,
+          entriesGroupByWorldName,
+          promptSettings,
+          mainContextList: settings.mainContextTemplatePresets[settings.mainContextTemplatePreset].prompts
+            .filter((p) => p.enabled)
+            .map((p) => ({ promptName: p.promptName, role: p.role })),
+          maxResponseToken: settings.maxResponseToken,
+          continueFrom: continueFromPayload,
+          streamCallbacks,
+          signal: abortController.signal,
         });
 
         if (Object.keys(resultingEntries).length > 0) {
@@ -736,6 +746,12 @@ export const MainPopup: FC = () => {
           st_echo('warning', messages.noResults);
         }
       } catch (error: any) {
+        // Check if request was aborted
+        if (error.name === 'AbortError') {
+          console.log('[WorldInfoRecommender] Request cancelled by user');
+          return; // Don't show error for user-initiated cancellation
+        }
+
         console.error('[WorldInfoRecommender] Generation error:', error);
 
         let friendlyMessage: string;
@@ -756,10 +772,19 @@ export const MainPopup: FC = () => {
         st_echo('error', friendlyMessage);
       } finally {
         setIsGenerating(false);
+        setStreamProgress(null);
+        abortControllerRef.current = null;
       }
     },
-    [settings, session, entriesGroupByWorldName, messages],
+    [settings, session, entriesGroupByWorldName, messages, directApiConfig],
   );
+
+  const handleCancelGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   const handleAddSingleEntry = useCallback(
     async (entry: WIEntry, worldName: string, selectedTargetWorld: string) => {
@@ -1540,13 +1565,24 @@ export const MainPopup: FC = () => {
               />
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '5px' }}>
                 {!lastError ? (
-                  <STButton
-                    onClick={() => handleGeneration()}
-                    disabled={isGenerating}
-                    className="menu_button interactable"
-                  >
-                    {isGenerating ? labels.generatingButton : labels.sendPromptButton}
-                  </STButton>
+                  <>
+                    <STButton
+                      onClick={() => handleGeneration()}
+                      disabled={isGenerating}
+                      className="menu_button interactable"
+                    >
+                      {isGenerating ? labels.generatingButton : labels.sendPromptButton}
+                    </STButton>
+                    {isGenerating && (
+                      <STButton
+                        onClick={handleCancelGeneration}
+                        className="menu_button interactable"
+                        title="取消请求"
+                      >
+                        <i className="fa-solid fa-stop"></i>
+                      </STButton>
+                    )}
+                  </>
                 ) : (
                   <STButton
                     onClick={() => handleGeneration()}
@@ -1558,6 +1594,60 @@ export const MainPopup: FC = () => {
                   </STButton>
                 )}
               </div>
+              {/* Streaming progress display */}
+              {isGenerating && streamProgress && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: 'var(--black30a)',
+                  borderRadius: '5px',
+                  border: '1px solid var(--SmartThemeBorderColor)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '8px',
+                    color: 'var(--SmartThemeBodyColor)',
+                    fontSize: '0.9em',
+                  }}>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>已接收 <strong>{streamProgress.receivedChars.toLocaleString()}</strong> 字符</span>
+                  </div>
+                  <pre style={{
+                    margin: 0,
+                    padding: '8px',
+                    backgroundColor: 'var(--black50a)',
+                    borderRadius: '4px',
+                    fontSize: '0.8em',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxHeight: '150px',
+                    overflowY: 'auto',
+                    color: 'var(--SmartThemeBodyColor)',
+                    fontFamily: 'monospace',
+                  }}>
+                    {streamProgress.preview}
+                  </pre>
+                </div>
+              )}
+              {/* Non-streaming generating indicator */}
+              {isGenerating && !streamProgress && !directApiConfig.enabled && (
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px',
+                  backgroundColor: 'var(--black30a)',
+                  borderRadius: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: 'var(--SmartThemeBodyColor)',
+                  fontSize: '0.9em',
+                }}>
+                  <i className="fa-solid fa-spinner fa-spin"></i>
+                  <span>正在通过 Connection Manager 生成...</span>
+                </div>
+              )}
               {lastError && (
                 <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'var(--black30a)', borderRadius: '5px', border: '1px solid var(--red)' }}>
                   <p style={{ margin: '0', color: 'var(--SmartThemeBodyColor)', fontSize: '0.9em', wordBreak: 'break-word' }}>
