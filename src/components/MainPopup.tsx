@@ -1239,14 +1239,23 @@ export const MainPopup: FC = () => {
                           const presetKey = e.target.value;
                           const newSettings = settingsManager.getSettings();
                           if (!newSettings.directApi) return;
+
+                          // Access the preset reliably
                           const preset = newSettings.directApi.presets?.[presetKey];
+
                           if (preset) {
+                            console.debug('[WorldInfoRecommender] Switching preset to:', presetKey, preset);
+
+                            // Explicitly copy all relevant fields to avoid missing updates
                             newSettings.directApi.currentPreset = presetKey;
                             newSettings.directApi.apiType = preset.apiType;
-                            newSettings.directApi.apiUrl = preset.apiUrl;
-                            newSettings.directApi.apiKey = preset.apiKey;
-                            newSettings.directApi.modelName = preset.modelName;
+                            newSettings.directApi.apiUrl = preset.apiUrl || ''; // Fallback to empty string
+                            newSettings.directApi.apiKey = preset.apiKey || '';
+                            newSettings.directApi.modelName = preset.modelName || '';
+
                             settingsManager.saveSettings();
+
+                            // Reset state derived from new settings
                             setAvailableModels([]);
                             forceUpdate();
                           }

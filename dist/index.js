@@ -27470,7 +27470,7 @@ const hn = SillyTavern.getContext(), FT = "en", d0 = {
                         const G = U.target.value, ae = De.getSettings();
                         if (!ae.directApi) return;
                         const ne = ae.directApi.presets?.[G];
-                        ne && (ae.directApi.currentPreset = G, ae.directApi.apiType = ne.apiType, ae.directApi.apiUrl = ne.apiUrl, ae.directApi.apiKey = ne.apiKey, ae.directApi.modelName = ne.modelName, De.saveSettings(), q([]), t());
+                        ne && (console.debug("[WorldInfoRecommender] Switching preset to:", G, ne), ae.directApi.currentPreset = G, ae.directApi.apiType = ne.apiType, ae.directApi.apiUrl = ne.apiUrl || "", ae.directApi.apiKey = ne.apiKey || "", ae.directApi.modelName = ne.modelName || "", De.saveSettings(), q([]), t());
                       },
                       children: Object.entries(h.presets || { default: { name: "Default" } }).map(([U, G]) => /* @__PURE__ */ T.jsx("option", { value: U, children: G.name || U }, U))
                     }
