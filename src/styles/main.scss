@@ -11,6 +11,7 @@
 // 全局强制样式 - 覆盖所有扩展内的按钮
 .world-info-recommender-settings,
 #worldInfoRecommenderPopup {
+
     // 强制所有按钮横向排列
     button,
     .menu_button,
@@ -21,8 +22,9 @@
         justify-content: center !important;
         white-space: nowrap !important;
         gap: 6px !important;
-        
-        i, span {
+
+        i,
+        span {
             display: inline !important;
         }
     }
@@ -33,17 +35,18 @@
         background: linear-gradient(135deg, #1b1b1b, #2f2f2f) !important;
         color: #f5f5f5 !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        
+
         &:hover {
             background: linear-gradient(135deg, #252525, #3a3a3a) !important;
             border-color: rgba(255, 255, 255, 0.15) !important;
         }
-        
+
         &:active {
             background: linear-gradient(135deg, #121212, #292929) !important;
         }
 
-        i, span {
+        i,
+        span {
             color: #f5f5f5 !important;
         }
     }
@@ -66,9 +69,11 @@
     overflow: visible;
     overflow-y: auto;
 }
+
 .popup-body:has(.compare-popup) {
     overflow: visible;
 }
+
 dialog:has(.compare-popup) {
     max-width: 90dvw;
     min-width: var(--sheldWidth);
@@ -79,6 +84,7 @@ dialog:has(.compare-popup) {
     display: flex;
     flex-direction: column;
 }
+
 dialog:has(.select-entries-popup) {
     min-width: 600px;
 }
@@ -162,10 +168,12 @@ dialog:has(.select-entries-popup) {
         .menu_button {
             padding: 5px 10px;
             font-size: 0.9em;
+
             i {
                 margin-right: 5px;
             }
         }
+
         span {
             font-size: 0.9em;
             color: var(--SmartThemeBodyColor);
@@ -198,13 +206,15 @@ dialog:has(.select-entries-popup) {
                     margin-right: 0;
                     width: 100%;
                     max-width: 100%;
-                    height: 40px; /* Taller for touch */
+                    height: 40px;
+                    /* Taller for touch */
                 }
 
                 .menu_button {
                     width: 100%;
                     justify-content: center;
-                    padding: 10px; /* Larger touch target */
+                    padding: 10px;
+                    /* Larger touch target */
                     height: auto;
                 }
             }
@@ -276,8 +286,10 @@ dialog:has(.select-entries-popup) {
         display: flex;
         justify-content: flex-end;
         margin-bottom: 15px;
-        gap: 8px; /* Add gap for spacing */
-        flex-wrap: wrap; /* Allow wrapping */
+        gap: 8px;
+        /* Add gap for spacing */
+        flex-wrap: wrap;
+        /* Allow wrapping */
 
         @media (max-width: 512px) {
             display: grid;
@@ -541,7 +553,7 @@ dialog:has(.select-entries-popup) {
         // 移动端适配
         @media (max-width: 600px) {
             padding: 10px;
-            
+
             label {
                 font-size: 0.9em;
                 flex-wrap: wrap;
@@ -728,7 +740,8 @@ dialog:has(.select-entries-popup) {
     align-items: center;
     margin-bottom: 10px;
 
-    h2, h3 {
+    h2,
+    h3 {
         margin: 0;
     }
 }
@@ -775,9 +788,11 @@ dialog:has(.select-entries-popup) {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
+
             .session-name {
                 font-weight: 500;
             }
+
             .session-date {
                 font-size: 0.8em;
                 color: var(--SmartThemeEmColor);
@@ -852,8 +867,12 @@ dialog:has(.select-entries-popup) {
 
         &.user {
             justify-content: flex-end;
-            .message-actions { order: -1; }
+
+            .message-actions {
+                order: -1;
+            }
         }
+
         &.assistant {
             justify-content: flex-start;
         }
@@ -933,6 +952,7 @@ dialog:has(.select-entries-popup) {
         textarea {
             flex-grow: 1;
         }
+
         button {
             height: 40px;
             width: 40px;
@@ -1007,54 +1027,67 @@ dialog:has(.select-entries-popup) {
 
 /* Global Diff Styles in Compare Popup */
 .global-diff {
-  .diff-section {
-    margin-bottom: 20px;
-    h4 {
-      background-color: var(--black30a);
-      padding: 8px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-      border-bottom: 1px solid var(--SmartThemeBorderColor);
-    }
-  }
+    .diff-section {
+        margin-bottom: 20px;
 
-  .diff-entry {
-    border-left: 3px solid;
-    padding-left: 15px;
-    margin-bottom: 15px;
-
-    .diff-entry-header {
-      font-weight: 500;
-      margin-bottom: 8px;
-      span {
-        font-weight: normal;
-        color: var(--SmartThemeEmColor);
-        font-size: 0.9em;
-      }
+        h4 {
+            background-color: var(--black30a);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--SmartThemeBorderColor);
+        }
     }
 
-    .diff-entry-content {
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 0.9em;
-      padding: 10px;
-      background: var(--black10a);
-      border-radius: 4px;
-    }
+    .diff-entry {
+        border-left: 3px solid;
+        padding-left: 15px;
+        margin-bottom: 15px;
 
-    &.added {
-      border-color: var(--active);
-      .diff-entry-header { color: var(--active); }
+        .diff-entry-header {
+            font-weight: 500;
+            margin-bottom: 8px;
+
+            span {
+                font-weight: normal;
+                color: var(--SmartThemeEmColor);
+                font-size: 0.9em;
+            }
+        }
+
+        .diff-entry-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.9em;
+            padding: 10px;
+            background: var(--black10a);
+            border-radius: 4px;
+        }
+
+        &.added {
+            border-color: var(--active);
+
+            .diff-entry-header {
+                color: var(--active);
+            }
+        }
+
+        &.removed {
+            border-color: var(--warning);
+
+            .diff-entry-header {
+                color: var(--warning);
+            }
+
+            .diff-entry-content {
+                text-decoration: line-through;
+            }
+        }
+
+        &.changed {
+            border-color: var(--primary);
+        }
     }
-    &.removed {
-      border-color: var(--warning);
-      .diff-entry-header { color: var(--warning); }
-      .diff-entry-content { text-decoration: line-through; }
-    }
-    &.changed {
-      border-color: var(--primary);
-    }
-  }
 }
 
 
@@ -1064,7 +1097,9 @@ dialog:has(.select-entries-popup) {
     padding: 15px;
 
     .popup_header {
-        h3 { margin: 0; }
+        h3 {
+            margin: 0;
+        }
     }
 
     .current-state-content {
@@ -1092,7 +1127,8 @@ dialog:has(.select-entries-popup) {
             border: 1px solid var(--SmartThemeBorderColor);
         }
 
-        textarea, input {
+        textarea,
+        input {
             width: 100%;
         }
 
@@ -1106,6 +1142,7 @@ dialog:has(.select-entries-popup) {
 .global-state-popup {
     .world-group {
         margin-bottom: 15px;
+
         h4 {
             margin: 0 0 8px 0;
             padding-bottom: 5px;
@@ -1113,6 +1150,7 @@ dialog:has(.select-entries-popup) {
             color: var(--SmartThemeEmColor);
         }
     }
+
     .state-field-group {
         border: 1px solid var(--SmartThemeBorderColor);
         border-radius: 8px;
@@ -1120,15 +1158,19 @@ dialog:has(.select-entries-popup) {
         margin-bottom: 10px;
         background-color: var(--black10a);
     }
+
     .state-field {
         margin-bottom: 8px;
+
         &:last-child {
             margin-bottom: 0;
         }
+
         label {
             margin-bottom: 2px;
             font-size: 0.9em;
         }
+
         .state-value {
             padding: 5px;
             font-size: 0.95em;
@@ -1140,46 +1182,77 @@ dialog:has(.select-entries-popup) {
 #worldInfoRecommenderPopup .direct-api-config {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 #worldInfoRecommenderPopup .direct-api-field {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+    /* Allow wrapping for narrow sidebars */
 
     label {
         min-width: 90px;
         flex-shrink: 0;
         font-weight: 500;
-        /* Ensure label doesn't get crushed */
         white-space: nowrap;
+        color: var(--SmartThemeEmColor);
     }
 
-    /* Standard inputs direct children */
-    > input,
-    > select {
+    >input,
+    >select {
         flex: 1;
-        min-width: 0; /* Allow shrinking below content size */
+        /* Take remaining space */
+        min-width: 150px;
+        /* Force wrap if too narrow */
     }
 }
 
-/* Specific wrapper for the Preset row which contains select + buttons */
+/* Specific wrapper for the Preset row */
 #worldInfoRecommenderPopup .direct-api-preset-wrapper {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     min-width: 0;
-    flex-wrap: wrap; /* Allow wrapping on small screens */
+    flex-wrap: wrap;
 
+    /* On wider screens, keep them together */
     select {
-        flex: 1 1 120px; /* Grow, shrink, min-basis 120px */
-        min-width: 0;
+        flex-grow: 10;
+        flex-basis: 140px;
+        min-width: 100px;
     }
 
-    button, .menu_button {
-        flex: 0 0 auto; /* Don't grow/shrink, auto basis */
+    /* Buttons group */
+    button,
+    .menu_button {
+        flex-grow: 1;
+        flex-basis: 40px;
+        justify-content: center;
+        padding: 8px;
+        max-width: 60px;
+        /* Don't let them get too wide */
+    }
+}
+
+/* Force specific layout for narrow containers (like mobile or small sidebars) */
+@container (max-width: 400px) {
+    #worldInfoRecommenderPopup .direct-api-preset-wrapper {
+        gap: 5px;
+    }
+
+    #worldInfoRecommenderPopup .direct-api-preset-wrapper select {
+        width: 100%;
+        flex-basis: 100%;
+        order: 1;
+    }
+
+    #worldInfoRecommenderPopup .direct-api-preset-wrapper button {
+        order: 2;
+        flex: 1;
+        max-width: none;
     }
 }
 
@@ -1187,15 +1260,14 @@ dialog:has(.select-entries-popup) {
     display: flex;
     gap: 10px;
     margin-top: 5px;
-    flex-wrap: wrap; /* Allow wrapping */
 
     .menu_button {
-        flex: 1 1 120px; /* Allow buttons to wrap and share space */
-        min-width: fit-content;
+        flex: 1;
+        justify-content: center;
     }
 }
 
-/* Mobile responsive styles for Direct API */
+/* Mobile responsive styles (Global Window Width) */
 @media (max-width: 600px) {
     #worldInfoRecommenderPopup .direct-api-field {
         flex-direction: column;
@@ -1207,26 +1279,28 @@ dialog:has(.select-entries-popup) {
             margin-bottom: 2px;
         }
 
-        > input,
-        > select {
+        >input,
+        >select {
             width: 100%;
+            min-width: 0;
         }
     }
 
     #worldInfoRecommenderPopup .direct-api-preset-wrapper {
-        width: 100%;
-        gap: 8px;
-        
+
+        /* Force the stacked layout on mobile */
         select {
-            flex-basis: 100%; /* Force full width on very small screens if needed, or share row */
             width: 100%;
+            flex-basis: 100%;
+            order: 1;
         }
 
-        /* Make buttons easier to tap */
-        button, .menu_button {
-            flex-grow: 1; /* Expand to fill space */
-            justify-content: center;
-            padding: 8px;
+        button,
+        .menu_button {
+            order: 2;
+            flex: 1;
+            max-width: none;
+            height: 36px;
         }
     }
 
@@ -1235,6 +1309,7 @@ dialog:has(.select-entries-popup) {
 
         .menu_button {
             width: 100%;
+            padding: 10px;
         }
     }
 }
