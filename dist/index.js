@@ -14292,7 +14292,7 @@ function v8(t) {
 async function y8(t, r, s, a, u) {
   let l = t.apiUrl.replace(/\/+$/, ""), h;
   l.endsWith("/chat/completions") || l.endsWith("chat/completions") ? h = l : l.endsWith("/v1") ? h = `${l}/chat/completions` : h = `${l}/v1/chat/completions`;
-  const m = !!a, f = Math.max(s, 1024), g = await fetch(h, {
+  const m = !!a, f = Math.max(s, 16384), g = await fetch(h, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

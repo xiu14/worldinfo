@@ -63,9 +63,9 @@ async function sendOpenAIRequest(
 
     const useStream = !!streamCallbacks;
 
-    // Ensure max_tokens is at least 1024 to avoid Claude Extended Thinking errors
+    // Ensure max_tokens is at least 16384 to avoid Claude Extended Thinking errors
     // (Claude requires max_tokens > thinking.budget_tokens)
-    const effectiveMaxTokens = Math.max(maxTokens, 1024);
+    const effectiveMaxTokens = Math.max(maxTokens, 16384);
 
     const response = await fetch(endpoint, {
         method: 'POST',
