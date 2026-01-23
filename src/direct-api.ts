@@ -324,13 +324,41 @@ export async function sendDirectApiRequest(
 
     console.log(`[WorldInfoRecommender] Sending direct API request (${config.apiType})${streamCallbacks ? ' with streaming' : ''}, messages: ${validMessages.length}`);
 
-    switch (config.apiType) {
-        case 'openai':
-            return sendOpenAIRequest(config, validMessages, maxTokens, streamCallbacks, signal);
-        case 'gemini':
-            return sendGeminiRequest(config, validMessages, maxTokens, streamCallbacks, signal);
-        default:
-            throw new Error(`Unsupported API type: ${config.apiType}`);
+    try {
+        switch (config.apiType) {
+            case 'openai':
+                return await sendOpenAIRequest(config, validMessages, maxTokens, streamCallbacks, signal);
+            case 'gemini':
+                return await sendGeminiRequest(config, validMessages, maxTokens, streamCallbacks, signal);
+            default:
+                throw new Error(`Unsupported API type: ${config.apiType}`);
+        }
+    } catch (error: any) {
+        // Auto-fallback: If streaming fails with a potentially CORS/network related error, try non-streaming
+        if (streamCallbacks && !signal?.aborted) {
+            const isNetworkError =
+                error.message?.includes('Failed to fetch') ||
+                error.message?.includes('NetworkError') ||
+                error.name === 'TypeError';
+
+            if (isNetworkError) {
+                console.warn('[WorldInfoRecommender] Streaming failed, likely due to CORS/Network limits. Retrying with non-streaming mode...', error);
+
+                // Notify user subtly via temporary chunk if possible or just retry
+                if (streamCallbacks.onChunk) {
+                    try {
+                        streamCallbacks.onChunk({
+                            chunk: ' [Streaming failed, switching to single response...] ',
+                            fullText: '',
+                            receivedChars: 0
+                        });
+                    } catch (e) { /* ignore */ }
+                }
+
+                return sendDirectApiRequest(config, messages, maxTokens, undefined, signal);
+            }
+        }
+        throw error;
     }
 }
 
