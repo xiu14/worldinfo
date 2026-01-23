@@ -1230,7 +1230,7 @@ export const MainPopup: FC = () => {
                   {/* Preset Selector */}
                   <div className="direct-api-field">
                     <label>{labels.directApiPreset}:</label>
-                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    <div className="direct-api-preset-wrapper">
                       <select
                         className="text_pole"
                         style={{ flex: 1 }}

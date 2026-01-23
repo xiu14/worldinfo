@@ -27446,7 +27446,7 @@ const hn = SillyTavern.getContext(), YT = "en", c0 = {
                   a.directApiPreset,
                   ":"
                 ] }),
-                /* @__PURE__ */ T.jsxs("div", { style: { display: "flex", gap: "5px", alignItems: "center" }, children: [
+                /* @__PURE__ */ T.jsxs("div", { className: "direct-api-preset-wrapper", children: [
                   /* @__PURE__ */ T.jsx(
                     "select",
                     {

@@ -1152,12 +1152,34 @@ dialog:has(.select-entries-popup) {
         min-width: 90px;
         flex-shrink: 0;
         font-weight: 500;
+        /* Ensure label doesn't get crushed */
+        white-space: nowrap;
     }
 
-    input,
-    select {
+    /* Standard inputs direct children */
+    > input,
+    > select {
         flex: 1;
+        min-width: 0; /* Allow shrinking below content size */
+    }
+}
+
+/* Specific wrapper for the Preset row which contains select + buttons */
+#worldInfoRecommenderPopup .direct-api-preset-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    flex-wrap: wrap; /* Allow wrapping on small screens */
+
+    select {
+        flex: 1 1 120px; /* Grow, shrink, min-basis 120px */
         min-width: 0;
+    }
+
+    button, .menu_button {
+        flex: 0 0 auto; /* Don't grow/shrink, auto basis */
     }
 }
 
@@ -1165,9 +1187,11 @@ dialog:has(.select-entries-popup) {
     display: flex;
     gap: 10px;
     margin-top: 5px;
+    flex-wrap: wrap; /* Allow wrapping */
 
     .menu_button {
-        flex: 1;
+        flex: 1 1 120px; /* Allow buttons to wrap and share space */
+        min-width: fit-content;
     }
 }
 
@@ -1180,11 +1204,29 @@ dialog:has(.select-entries-popup) {
 
         label {
             min-width: auto;
+            margin-bottom: 2px;
         }
 
-        input,
-        select {
+        > input,
+        > select {
             width: 100%;
+        }
+    }
+
+    #worldInfoRecommenderPopup .direct-api-preset-wrapper {
+        width: 100%;
+        gap: 8px;
+        
+        select {
+            flex-basis: 100%; /* Force full width on very small screens if needed, or share row */
+            width: 100%;
+        }
+
+        /* Make buttons easier to tap */
+        button, .menu_button {
+            flex-grow: 1; /* Expand to fill space */
+            justify-content: center;
+            padding: 8px;
         }
     }
 
