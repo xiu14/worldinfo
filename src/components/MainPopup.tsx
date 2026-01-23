@@ -1238,24 +1238,27 @@ export const MainPopup: FC = () => {
                         onChange={(e) => {
                           const presetKey = e.target.value;
                           const newSettings = settingsManager.getSettings();
-                          if (!newSettings.directApi) return;
 
-                          // Access the preset reliably
-                          const preset = newSettings.directApi.presets?.[presetKey];
+                          // Ensure valid object structure exists to write to
+                          if (!newSettings.directApi) {
+                            newSettings.directApi = { ...directApiConfig };
+                          }
+
+                          // Use directApiConfig (scope) as source because it contains merged defaults
+                          const preset = directApiConfig.presets?.[presetKey];
 
                           if (preset) {
                             console.debug('[WorldInfoRecommender] Switching preset to:', presetKey, preset);
 
-                            // Explicitly copy all relevant fields to avoid missing updates
+                            // Copy fields
                             newSettings.directApi.currentPreset = presetKey;
                             newSettings.directApi.apiType = preset.apiType;
-                            newSettings.directApi.apiUrl = preset.apiUrl || ''; // Fallback to empty string
+                            newSettings.directApi.apiUrl = preset.apiUrl || '';
                             newSettings.directApi.apiKey = preset.apiKey || '';
                             newSettings.directApi.modelName = preset.modelName || '';
 
                             settingsManager.saveSettings();
 
-                            // Reset state derived from new settings
                             setAvailableModels([]);
                             forceUpdate();
                           }
