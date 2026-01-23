@@ -45,6 +45,7 @@ async function sendOpenAIRequest(
     maxTokens: number,
     streamCallbacks?: StreamCallbacks,
     signal?: AbortSignal,
+    overrideMaxTokens?: number,
 ): Promise<DirectApiResponse> {
     // Build the endpoint URL, handling various input formats:
     // - "http://example.com" -> "http://example.com/v1/chat/completions"
@@ -63,9 +64,9 @@ async function sendOpenAIRequest(
 
     const useStream = !!streamCallbacks;
 
-    // Ensure max_tokens is at least 16384 to avoid Claude Extended Thinking errors
-    // (Claude requires max_tokens > thinking.budget_tokens)
-    const effectiveMaxTokens = Math.max(maxTokens, 16384);
+    // Ensure max_tokens is at least 1024 (default floor)
+    // If override is provided (e.g. for Thinking models retry), use that.
+    const effectiveMaxTokens = overrideMaxTokens ?? Math.max(maxTokens, 1024);
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -84,6 +85,7 @@ async function sendOpenAIRequest(
 
     if (!response.ok) {
         const errorText = await response.text();
+        // Throw with status code for easier handling
         throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
     }
 
@@ -176,6 +178,13 @@ async function sendOpenAIRequest(
     }
 
     return { content };
+}
+
+// Check if error is related to Thinking Budget
+function isThinkingBudgetError(error: any): boolean {
+    const msg = (error.message || '').toLowerCase();
+    return msg.includes('budget_token') ||
+        (msg.includes('max_tokens') && msg.includes('thinking'));
 }
 
 /**
@@ -334,8 +343,24 @@ export async function sendDirectApiRequest(
                 throw new Error(`Unsupported API type: ${config.apiType}`);
         }
     } catch (error: any) {
+        if (signal?.aborted) throw error; // Don't retry if aborted
+
+        // Check for Thinking Budget error (needs higher max_tokens)
+        const isBudgetError = isThinkingBudgetError(error);
+
+        if (isBudgetError && config.apiType === 'openai' && maxTokens < 16384) {
+            console.warn('[WorldInfoRecommender] Thinking Budget error detected. Retrying with max_tokens=16384...');
+
+            // Notify via stream if possible
+            if (streamCallbacks?.onChunk) {
+                try { streamCallbacks.onChunk({ chunk: ' [Adjusting tokens for Thinking Model...] ', fullText: '', receivedChars: 0 }); } catch (e) { }
+            }
+
+            return await sendOpenAIRequest(config, validMessages, maxTokens, streamCallbacks, signal, 16384);
+        }
+
         // Auto-fallback: If streaming fails with a potentially CORS/network related error, try non-streaming
-        if (streamCallbacks && !signal?.aborted) {
+        if (streamCallbacks) {
             const isNetworkError =
                 error.message?.includes('Failed to fetch') ||
                 error.message?.includes('NetworkError') ||
