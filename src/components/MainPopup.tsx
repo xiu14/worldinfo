@@ -131,6 +131,21 @@ type UILabels = {
   directApiTest: string;
   directApiTestSuccess: string;
   directApiTestFail: string;
+  // Direct API Presets
+  directApiPreset: string;
+  directApiSaveAsNew: string;
+  directApiSaveAsNewTooltip: string;
+  directApiRenamePreset: string;
+  directApiRenamePresetTooltip: string;
+  directApiDeletePreset: string;
+  directApiDeletePresetTooltip: string;
+  directApiPresetNamePrompt: string;
+  directApiPresetRenamePrompt: string;
+  directApiPresetDeleteConfirm: (name: string) => string;
+  directApiPresetSaved: (name: string) => string;
+  directApiPresetRenamed: (oldName: string, newName: string) => string;
+  directApiPresetDeleted: (name: string) => string;
+  directApiPresetCannotDeleteLast: string;
 };
 
 type UIMessages = {
@@ -234,6 +249,21 @@ const UI_LABELS: Record<SupportedLanguage, UILabels> = {
     directApiTest: 'Test',
     directApiTestSuccess: 'Connection successful!',
     directApiTestFail: 'Connection failed',
+    // Direct API Presets
+    directApiPreset: 'API Preset',
+    directApiSaveAsNew: 'Save as New',
+    directApiSaveAsNewTooltip: 'Save current config as a new preset',
+    directApiRenamePreset: 'Rename',
+    directApiRenamePresetTooltip: 'Rename current preset',
+    directApiDeletePreset: 'Delete',
+    directApiDeletePresetTooltip: 'Delete current preset',
+    directApiPresetNamePrompt: 'Enter a name for the new preset:',
+    directApiPresetRenamePrompt: 'Enter a new name for the preset:',
+    directApiPresetDeleteConfirm: (name: string) => `Delete preset "${name}"?`,
+    directApiPresetSaved: (name: string) => `Preset "${name}" saved.`,
+    directApiPresetRenamed: (oldName: string, newName: string) => `Preset renamed from "${oldName}" to "${newName}".`,
+    directApiPresetDeleted: (name: string) => `Preset "${name}" deleted.`,
+    directApiPresetCannotDeleteLast: 'Cannot delete the last preset.',
   },
   'zh-CN': {
     loadingText: '加载中...',
@@ -305,6 +335,21 @@ const UI_LABELS: Record<SupportedLanguage, UILabels> = {
     directApiTest: '测试',
     directApiTestSuccess: '连接成功！',
     directApiTestFail: '连接失败',
+    // Direct API Presets
+    directApiPreset: 'API 预设',
+    directApiSaveAsNew: '保存为新预设',
+    directApiSaveAsNewTooltip: '将当前配置保存为新预设',
+    directApiRenamePreset: '重命名',
+    directApiRenamePresetTooltip: '重命名当前预设',
+    directApiDeletePreset: '删除',
+    directApiDeletePresetTooltip: '删除当前预设',
+    directApiPresetNamePrompt: '请输入新预设的名称：',
+    directApiPresetRenamePrompt: '请输入预设的新名称：',
+    directApiPresetDeleteConfirm: (name: string) => `确定删除预设 "${name}"？`,
+    directApiPresetSaved: (name: string) => `预设 "${name}" 已保存。`,
+    directApiPresetRenamed: (oldName: string, newName: string) => `预设已从 "${oldName}" 重命名为 "${newName}"。`,
+    directApiPresetDeleted: (name: string) => `预设 "${name}" 已删除。`,
+    directApiPresetCannotDeleteLast: '无法删除最后一个预设。',
   },
 };
 
@@ -370,6 +415,16 @@ export const MainPopup: FC = () => {
   // Ensure directApi config exists (for backwards compatibility)
   const directApiConfig = settings.directApi ?? {
     enabled: false,
+    currentPreset: 'default',
+    presets: {
+      default: {
+        name: 'Default',
+        apiType: 'openai' as const,
+        apiUrl: '',
+        apiKey: '',
+        modelName: '',
+      },
+    },
     apiType: 'openai' as const,
     apiUrl: '',
     apiKey: '',
@@ -1144,7 +1199,23 @@ export const MainPopup: FC = () => {
                   onChange={(e) => {
                     const newSettings = settingsManager.getSettings();
                     if (!newSettings.directApi) {
-                      newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                      newSettings.directApi = {
+                        enabled: false,
+                        currentPreset: 'default',
+                        presets: {
+                          default: {
+                            name: 'Default',
+                            apiType: 'openai',
+                            apiUrl: '',
+                            apiKey: '',
+                            modelName: '',
+                          },
+                        },
+                        apiType: 'openai',
+                        apiUrl: '',
+                        apiKey: '',
+                        modelName: '',
+                      };
                     }
                     newSettings.directApi.enabled = e.target.checked;
                     settingsManager.saveSettings();
@@ -1156,6 +1227,111 @@ export const MainPopup: FC = () => {
 
               {directApiConfig.enabled ? (
                 <div className="direct-api-config">
+                  {/* Preset Selector */}
+                  <div className="direct-api-field">
+                    <label>{labels.directApiPreset}:</label>
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                      <select
+                        className="text_pole"
+                        style={{ flex: 1 }}
+                        value={directApiConfig.currentPreset || 'default'}
+                        onChange={(e) => {
+                          const presetKey = e.target.value;
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi) return;
+                          const preset = newSettings.directApi.presets?.[presetKey];
+                          if (preset) {
+                            newSettings.directApi.currentPreset = presetKey;
+                            newSettings.directApi.apiType = preset.apiType;
+                            newSettings.directApi.apiUrl = preset.apiUrl;
+                            newSettings.directApi.apiKey = preset.apiKey;
+                            newSettings.directApi.modelName = preset.modelName;
+                            settingsManager.saveSettings();
+                            setAvailableModels([]);
+                            forceUpdate();
+                          }
+                        }}
+                      >
+                        {Object.entries(directApiConfig.presets || { default: { name: 'Default' } }).map(([key, preset]) => (
+                          <option key={key} value={key}>{preset.name || key}</option>
+                        ))}
+                      </select>
+                      <STButton
+                        title={labels.directApiSaveAsNewTooltip}
+                        onClick={async () => {
+                          const name = await globalContext.Popup.show.input(labels.directApiPresetNamePrompt, '');
+                          if (!name || typeof name !== 'string' || !name.trim()) return;
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi) return;
+                          if (!newSettings.directApi.presets) newSettings.directApi.presets = {};
+                          const presetKey = `preset_${Date.now()}`;
+                          newSettings.directApi.presets[presetKey] = {
+                            name: name.trim(),
+                            apiType: newSettings.directApi.apiType,
+                            apiUrl: newSettings.directApi.apiUrl,
+                            apiKey: newSettings.directApi.apiKey,
+                            modelName: newSettings.directApi.modelName,
+                          };
+                          newSettings.directApi.currentPreset = presetKey;
+                          settingsManager.saveSettings();
+                          st_echo('success', labels.directApiPresetSaved(name.trim()));
+                          forceUpdate();
+                        }}
+                      >
+                        <i className="fa-solid fa-plus" />
+                      </STButton>
+                      <STButton
+                        title={labels.directApiRenamePresetTooltip}
+                        onClick={async () => {
+                          const currentKey = directApiConfig.currentPreset || 'default';
+                          const currentName = directApiConfig.presets?.[currentKey]?.name || currentKey;
+                          const newName = await globalContext.Popup.show.input(labels.directApiPresetRenamePrompt, currentName);
+                          if (!newName || typeof newName !== 'string' || !newName.trim() || newName.trim() === currentName) return;
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi?.presets?.[currentKey]) return;
+                          newSettings.directApi.presets[currentKey].name = newName.trim();
+                          settingsManager.saveSettings();
+                          st_echo('success', labels.directApiPresetRenamed(currentName, newName.trim()));
+                          forceUpdate();
+                        }}
+                      >
+                        <i className="fa-solid fa-pen" />
+                      </STButton>
+                      <STButton
+                        title={labels.directApiDeletePresetTooltip}
+                        disabled={Object.keys(directApiConfig.presets || {}).length <= 1}
+                        onClick={async () => {
+                          const currentKey = directApiConfig.currentPreset || 'default';
+                          const currentName = directApiConfig.presets?.[currentKey]?.name || currentKey;
+                          const presetKeys = Object.keys(directApiConfig.presets || {});
+                          if (presetKeys.length <= 1) {
+                            st_echo('warning', labels.directApiPresetCannotDeleteLast);
+                            return;
+                          }
+                          const confirm = await globalContext.Popup.show.confirm(labels.directApiPresetDeleteConfirm(currentName), '');
+                          if (!confirm) return;
+                          const newSettings = settingsManager.getSettings();
+                          if (!newSettings.directApi?.presets) return;
+                          delete newSettings.directApi.presets[currentKey];
+                          const remainingKeys = Object.keys(newSettings.directApi.presets);
+                          const newKey = remainingKeys[0];
+                          const newPreset = newSettings.directApi.presets[newKey];
+                          newSettings.directApi.currentPreset = newKey;
+                          newSettings.directApi.apiType = newPreset.apiType;
+                          newSettings.directApi.apiUrl = newPreset.apiUrl;
+                          newSettings.directApi.apiKey = newPreset.apiKey;
+                          newSettings.directApi.modelName = newPreset.modelName;
+                          settingsManager.saveSettings();
+                          st_echo('success', labels.directApiPresetDeleted(currentName));
+                          setAvailableModels([]);
+                          forceUpdate();
+                        }}
+                      >
+                        <i className="fa-solid fa-trash" />
+                      </STButton>
+                    </div>
+                  </div>
+
                   <div className="direct-api-field">
                     <label>{labels.directApiType}:</label>
                     <select
@@ -1163,10 +1339,13 @@ export const MainPopup: FC = () => {
                       value={directApiConfig.apiType}
                       onChange={(e) => {
                         const newSettings = settingsManager.getSettings();
-                        if (!newSettings.directApi) {
-                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        if (!newSettings.directApi) return;
+                        const value = e.target.value as DirectApiType;
+                        newSettings.directApi.apiType = value;
+                        const currentKey = newSettings.directApi.currentPreset || 'default';
+                        if (newSettings.directApi.presets?.[currentKey]) {
+                          newSettings.directApi.presets[currentKey].apiType = value;
                         }
-                        newSettings.directApi.apiType = e.target.value as DirectApiType;
                         settingsManager.saveSettings();
                         forceUpdate();
                       }}
@@ -1184,10 +1363,13 @@ export const MainPopup: FC = () => {
                       value={directApiConfig.apiUrl}
                       onChange={(e) => {
                         const newSettings = settingsManager.getSettings();
-                        if (!newSettings.directApi) {
-                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        if (!newSettings.directApi) return;
+                        const value = e.target.value;
+                        newSettings.directApi.apiUrl = value;
+                        const currentKey = newSettings.directApi.currentPreset || 'default';
+                        if (newSettings.directApi.presets?.[currentKey]) {
+                          newSettings.directApi.presets[currentKey].apiUrl = value;
                         }
-                        newSettings.directApi.apiUrl = e.target.value;
                         settingsManager.saveSettings();
                         forceUpdate();
                       }}
@@ -1203,10 +1385,13 @@ export const MainPopup: FC = () => {
                       value={directApiConfig.apiKey}
                       onChange={(e) => {
                         const newSettings = settingsManager.getSettings();
-                        if (!newSettings.directApi) {
-                          newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                        if (!newSettings.directApi) return;
+                        const value = e.target.value;
+                        newSettings.directApi.apiKey = value;
+                        const currentKey = newSettings.directApi.currentPreset || 'default';
+                        if (newSettings.directApi.presets?.[currentKey]) {
+                          newSettings.directApi.presets[currentKey].apiKey = value;
                         }
-                        newSettings.directApi.apiKey = e.target.value;
                         settingsManager.saveSettings();
                         forceUpdate();
                       }}
@@ -1222,10 +1407,13 @@ export const MainPopup: FC = () => {
                         value={directApiConfig.modelName}
                         onChange={(e) => {
                           const newSettings = settingsManager.getSettings();
-                          if (!newSettings.directApi) {
-                            newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                          if (!newSettings.directApi) return;
+                          const value = e.target.value;
+                          newSettings.directApi.modelName = value;
+                          const currentKey = newSettings.directApi.currentPreset || 'default';
+                          if (newSettings.directApi.presets?.[currentKey]) {
+                            newSettings.directApi.presets[currentKey].modelName = value;
                           }
-                          newSettings.directApi.modelName = e.target.value;
                           settingsManager.saveSettings();
                           forceUpdate();
                         }}
@@ -1242,10 +1430,13 @@ export const MainPopup: FC = () => {
                         value={directApiConfig.modelName}
                         onChange={(e) => {
                           const newSettings = settingsManager.getSettings();
-                          if (!newSettings.directApi) {
-                            newSettings.directApi = { enabled: false, apiType: 'openai', apiUrl: '', apiKey: '', modelName: '' };
+                          if (!newSettings.directApi) return;
+                          const value = e.target.value;
+                          newSettings.directApi.modelName = value;
+                          const currentKey = newSettings.directApi.currentPreset || 'default';
+                          if (newSettings.directApi.presets?.[currentKey]) {
+                            newSettings.directApi.presets[currentKey].modelName = value;
                           }
-                          newSettings.directApi.modelName = e.target.value;
                           settingsManager.saveSettings();
                           forceUpdate();
                         }}

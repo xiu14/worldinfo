@@ -63,6 +63,10 @@ async function sendOpenAIRequest(
 
     const useStream = !!streamCallbacks;
 
+    // Ensure max_tokens is at least 1024 to avoid Claude Extended Thinking errors
+    // (Claude requires max_tokens > thinking.budget_tokens)
+    const effectiveMaxTokens = Math.max(maxTokens, 1024);
+
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -72,7 +76,7 @@ async function sendOpenAIRequest(
         body: JSON.stringify({
             model: config.modelName,
             messages: convertToOpenAIMessages(messages),
-            max_tokens: maxTokens,
+            max_tokens: effectiveMaxTokens,
             stream: useStream,
         }),
         signal,
@@ -201,7 +205,7 @@ async function sendGeminiRequest(
     if (!endpoint.includes('key=')) {
         endpoint += `?key=${config.apiKey}`;
     }
-    
+
     // For streaming, add alt=sse parameter
     if (useStream && !endpoint.includes('alt=')) {
         endpoint += '&alt=sse';
@@ -311,13 +315,20 @@ export async function sendDirectApiRequest(
         throw new Error('Model name is not configured');
     }
 
-    console.log(`[WorldInfoRecommender] Sending direct API request (${config.apiType})${streamCallbacks ? ' with streaming' : ''}`);
+    // Filter out messages with empty content and validate
+    const validMessages = messages.filter(msg => msg.content && msg.content.trim().length > 0);
+
+    if (validMessages.length === 0) {
+        throw new Error('No valid messages to send. Please ensure your prompts are configured correctly.');
+    }
+
+    console.log(`[WorldInfoRecommender] Sending direct API request (${config.apiType})${streamCallbacks ? ' with streaming' : ''}, messages: ${validMessages.length}`);
 
     switch (config.apiType) {
         case 'openai':
-            return sendOpenAIRequest(config, messages, maxTokens, streamCallbacks, signal);
+            return sendOpenAIRequest(config, validMessages, maxTokens, streamCallbacks, signal);
         case 'gemini':
-            return sendGeminiRequest(config, messages, maxTokens, streamCallbacks, signal);
+            return sendGeminiRequest(config, validMessages, maxTokens, streamCallbacks, signal);
         default:
             throw new Error(`Unsupported API type: ${config.apiType}`);
     }
@@ -332,7 +343,7 @@ export async function testDirectApiConnection(config: DirectApiConfig): Promise<
             { role: 'user', content: 'Hello, please respond with "OK" only.' },
         ];
 
-        await sendDirectApiRequest(config, testMessages, 10);
+        await sendDirectApiRequest(config, testMessages, 1024);
         return { success: true, message: 'Connection successful!' };
     } catch (error: any) {
         return { success: false, message: error.message || 'Connection failed' };

@@ -67,8 +67,20 @@ export interface MainContextTemplatePreset {
 // Direct API Configuration (bypasses ConnectionManager)
 export type DirectApiType = 'openai' | 'gemini';
 
+// 单个 API 配置预设
+export interface DirectApiPreset {
+  name: string;        // 预设名称，如 "OpenRouter Claude"
+  apiType: DirectApiType;
+  apiUrl: string;
+  apiKey: string;
+  modelName: string;
+}
+
 export interface DirectApiConfig {
   enabled: boolean;
+  currentPreset: string;  // 当前选中的预设名称
+  presets: Record<string, DirectApiPreset>;  // 预设列表
+  // 保留原有字段用于向后兼容和快速访问当前配置
   apiType: DirectApiType;
   apiUrl: string;
   apiKey: string;
@@ -285,6 +297,16 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   },
   directApi: {
     enabled: false,
+    currentPreset: 'default',
+    presets: {
+      default: {
+        name: 'Default',
+        apiType: 'openai',
+        apiUrl: '',
+        apiKey: '',
+        modelName: '',
+      },
+    },
     apiType: 'openai',
     apiUrl: '',
     apiKey: '',
