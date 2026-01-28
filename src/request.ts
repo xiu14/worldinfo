@@ -6,6 +6,7 @@ import { PromptEngineeringMode, settingsManager } from './settings.js';
 import * as Handlebars from 'handlebars';
 import { schemaToExample } from './schema-to-example.js';
 import { parseXMLOwn } from './xml.js';
+import { sendDirectApiRequest } from './direct-api.js';
 
 const generator = new Generator();
 
@@ -42,12 +43,12 @@ async function makeRequest(
         abortController,
         onEntry: stream
           ? async (_requestId, streamData) => {
-              const text = (streamData as StreamResponse).text;
-              if (text && streamCallbacks) {
-                await streamCallbacks.onStream({ chunk: text.slice(previousText.length), fullText: text });
-                previousText = text;
-              }
+            const text = (streamData as StreamResponse).text;
+            if (text && streamCallbacks) {
+              await streamCallbacks.onStream({ chunk: text.slice(previousText.length), fullText: text });
+              previousText = text;
             }
+          }
           : undefined,
         onFinish: (_requestId, data, error) => {
           if (combinedSignal.aborted) {
@@ -70,6 +71,30 @@ async function makeRequest(
   });
 }
 
+/**
+ * Helper function that checks DirectApi config and routes requests accordingly.
+ * If DirectApi is enabled, uses sendDirectApiRequest; otherwise uses makeRequest (ConnectionManager).
+ */
+async function makeRequestWithDirectApiSupport(
+  profileId: string,
+  prompt: Message[],
+  maxTokens: number,
+  overridePayload: any,
+  signal?: AbortSignal,
+): Promise<ExtractedData | undefined> {
+  const directApiConfig = settingsManager.getSettings().directApi;
+
+  if (directApiConfig.enabled) {
+    // Use Direct API (bypasses ConnectionManager)
+    console.log('[WorldInfoRecommender] makeStructuredRequest using Direct API:', directApiConfig.apiType);
+    const directResponse = await sendDirectApiRequest(directApiConfig, prompt, maxTokens, undefined, signal);
+    return { content: directResponse.content } as ExtractedData;
+  } else {
+    // Use ConnectionManager (original behavior)
+    return makeRequest(profileId, prompt, maxTokens, overridePayload, undefined, signal);
+  }
+}
+
 export async function makeStructuredRequest<T extends z.ZodType<any, any, any>>(
   profileId: string,
   baseMessages: Message[],
@@ -86,14 +111,13 @@ export async function makeStructuredRequest<T extends z.ZodType<any, any, any>>(
   const jsonSchema = z.toJSONSchema(schema);
 
   if (promptEngineeringMode === 'native') {
-    response = await makeRequest(
+    response = await makeRequestWithDirectApiSupport(
       profileId,
       baseMessages,
       maxResponseToken,
       {
         json_schema: { name: schemaName, strict: true, value: jsonSchema },
       },
-      undefined,
       signal,
     );
     if (!response?.content) {
@@ -121,12 +145,11 @@ export async function makeStructuredRequest<T extends z.ZodType<any, any, any>>(
     const resolvedPrompt = Handlebars.compile(promptTemplate, { noEscape: true, strict: true })(templateContext);
     const instructionMessage: Message = { role: 'system', content: resolvedPrompt };
 
-    response = await makeRequest(
+    response = await makeRequestWithDirectApiSupport(
       profileId,
       [...baseMessages, instructionMessage],
       maxResponseToken,
       {},
-      undefined,
       signal,
     );
 
