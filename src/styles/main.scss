@@ -1313,3 +1313,132 @@ dialog:has(.select-entries-popup) {
         }
     }
 }
+
+// ================================
+// Failed Parse Card Styles
+// ================================
+.failed-parse-card {
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.15), rgba(178, 34, 34, 0.15));
+    border: 1px solid rgba(255, 152, 0, 0.4);
+    border-radius: 10px;
+    margin-bottom: 15px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+    &__header {
+        background: linear-gradient(135deg, rgba(255, 152, 0, 0.25), rgba(255, 87, 34, 0.25));
+        padding: 12px 15px;
+        border-bottom: 1px solid rgba(255, 152, 0, 0.3);
+    }
+
+    &__title {
+        font-weight: 600;
+        font-size: 1.05em;
+        color: #ffb74d;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    &__body {
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    &__info-row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    &__label {
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.7);
+        min-width: 70px;
+        flex-shrink: 0;
+    }
+
+    &__value {
+        color: var(--SmartThemeBodyColor);
+        word-break: break-word;
+    }
+
+    &__error {
+        color: #ff8a65;
+        font-family: monospace;
+        font-size: 0.95em;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+
+    &__partial-info {
+        color: #81c784;
+        font-size: 0.9em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    &__actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 5px;
+
+        .menu_button {
+            flex: 1;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        @media (max-width: 600px) {
+            flex-direction: column;
+
+            .menu_button {
+                width: 100%;
+            }
+        }
+    }
+
+    &__raw-content {
+        margin-top: 10px;
+        
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            max-height: 400px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 10px;
+            color: var(--SmartThemeBodyColor);
+            resize: vertical;
+
+            &:focus {
+                outline: none;
+                border-color: rgba(255, 152, 0, 0.5);
+            }
+        }
+    }
+}
+
+// Mobile adjustments for failed parse card
+@media (max-width: 600px) {
+    .failed-parse-card {
+        &__info-row {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        &__label {
+            min-width: auto;
+        }
+    }
+}

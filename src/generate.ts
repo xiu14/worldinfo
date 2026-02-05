@@ -1,6 +1,6 @@
 import { buildPrompt, BuildPromptOptions, ExtensionSettingsManager, Message } from 'sillytavern-utils-lib';
 import { ExtractedData } from 'sillytavern-utils-lib/types';
-import { getFullXML, getPrefilledXML, parseXMLOwn } from './xml.js';
+import { getFullXML, getPrefilledXML, parseXMLOwn, FailedParseRecord } from './xml.js';
 import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
 import { st_createWorldInfoEntry } from 'sillytavern-utils-lib/config';
 import { ExtensionSettings, MessageRole, settingsManager } from './settings.js';
@@ -11,12 +11,16 @@ import * as Handlebars from 'handlebars';
 
 export const globalContext = SillyTavern.getContext();
 
+// 重新导出 FailedParseRecord 以便其他模块使用
+export type { FailedParseRecord } from './xml.js';
+
 export interface Session {
   suggestedEntries: Record<string, WIEntry[]>;
   blackListedEntries: string[];
   selectedWorldNames: string[];
   selectedEntryUids: Record<string, number[]>;
   regexIds: Record<string, Partial<RegexScriptData>>;
+  failedParseRecords: FailedParseRecord[];  // 解析失败的记录
 }
 
 // @ts-ignore
@@ -39,6 +43,14 @@ export interface RunWorldInfoRecommendationParams {
   signal?: AbortSignal;
 }
 
+/**
+ * 运行世界信息推荐的结果
+ */
+export interface RunWorldInfoRecommendationResult {
+  entries: Record<string, WIEntry[]>;
+  failedRecord?: FailedParseRecord;
+}
+
 export async function runWorldInfoRecommendation({
   profileId,
   userPrompt,
@@ -51,7 +63,7 @@ export async function runWorldInfoRecommendation({
   continueFrom,
   streamCallbacks,
   signal,
-}: RunWorldInfoRecommendationParams): Promise<Record<string, WIEntry[]>> {
+}: RunWorldInfoRecommendationParams): Promise<RunWorldInfoRecommendationResult> {
   const directApiConfig = settingsManager.getSettings().directApi;
 
   // Only check profileId if not using direct API
@@ -288,16 +300,19 @@ export async function runWorldInfoRecommendation({
 
   const assistantMessageForContinue = messages.find((m) => m.role === 'assistant');
   if (!response.content) {
-    return {};
+    return { entries: {} };
   }
-  let parsedEntries = parseXMLOwn(response.content, {
+
+  const parseResult = parseXMLOwn(response.content, {
     // Only merge with previous content if we are in 'continue' mode.
     previousContent:
       continueFrom && continueFrom.mode === 'continue' ? assistantMessageForContinue?.content : undefined,
   });
 
-  if (Object.keys(parsedEntries).length === 0) {
-    return {};
+  let parsedEntries = parseResult.entries;
+
+  if (Object.keys(parsedEntries).length === 0 && !parseResult.failedRecord) {
+    return { entries: {} };
   }
 
   // Set "key" and "comment" if missing, using the passed entriesGroupByWorldName
@@ -323,10 +338,13 @@ export async function runWorldInfoRecommendation({
   });
 
   parsedEntries = continueFrom
-    ? { [continueFrom.worldName]: [parsedEntries[continueFrom.worldName][0]] }
+    ? { [continueFrom.worldName]: [parsedEntries[continueFrom.worldName]?.[0]].filter(Boolean) as WIEntry[] }
     : parsedEntries;
 
-  return parsedEntries;
+  return {
+    entries: parsedEntries,
+    failedRecord: parseResult.failedRecord,
+  };
 }
 
 /**

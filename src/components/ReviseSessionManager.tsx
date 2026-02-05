@@ -65,8 +65,8 @@ interface ReviseSessionManagerProps {
   initialState: ReviseState;
   onClose: () => void;
   onApply:
-    | ((newState: Record<string, WIEntry[]>) => void)
-    | ((args: { worldName: string; originalEntry: WIEntry; updatedEntry: WIEntry }) => void);
+  | ((newState: Record<string, WIEntry[]>) => void)
+  | ((args: { worldName: string; originalEntry: WIEntry; updatedEntry: WIEntry }) => void);
   sessionForContext: Session;
   allEntries: Record<string, WIEntry[]>;
   contextToSend: ExtensionSettings['contextToSend'];
@@ -130,7 +130,8 @@ export const ReviseSessionManager: FC<ReviseSessionManagerProps> = ({
 
     try {
       const currentSettings = settingsManager.getSettings();
-      if (!currentSettings.profileId) {
+      // 检查直接 API 是否已配置
+      if (!currentSettings.directApi?.enabled || !currentSettings.directApi?.currentPreset) {
         st_echo('warning', labels.needProfileWarning);
         return;
       }
@@ -154,7 +155,7 @@ export const ReviseSessionManager: FC<ReviseSessionManagerProps> = ({
         createdAt: new Date().toISOString(),
         messages: initialMsgs,
         context: { mainContextTemplatePreset: currentSettings.mainContextTemplatePreset },
-        profileId: currentSettings.profileId,
+        directApiPresetKey: currentSettings.directApi.currentPreset,
         promptEngineeringMode: currentSettings.defaultPromptEngineeringMode,
       };
 
@@ -204,9 +205,7 @@ export const ReviseSessionManager: FC<ReviseSessionManagerProps> = ({
   };
 
   if (activeSession) {
-    const profile = globalContext.extensionSettings.connectionManager?.profiles?.find(
-      (p) => p.id === activeSession.profileId,
-    );
+    // 直接 API 模式不需要获取 profile
     const msgContext = contextToSend.messages;
     const chatContextOptions: BuildPromptOptions = {
       targetCharacterId: this_chid,
@@ -214,9 +213,6 @@ export const ReviseSessionManager: FC<ReviseSessionManagerProps> = ({
       ignoreWorldInfo: true,
       ignoreAuthorNote: !contextToSend.authorNote,
       includeNames: !!selected_group,
-      presetName: profile?.preset,
-      contextName: profile?.context,
-      instructName: profile?.instruct,
     };
 
     if (!this_chid && !selected_group) {

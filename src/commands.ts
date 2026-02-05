@@ -391,6 +391,7 @@ export function initializeCommands() {
             blackListedEntries: [], // Start with no blacklist
             regexIds: {}, // Start with no regexes
             selectedEntryUids: {},
+            failedParseRecords: [], // Start with no failed records
           };
 
           const parsedMaxResponse = namedArgs['max-response'] ? parseInt(namedArgs['max-response']) : undefined;
@@ -428,7 +429,8 @@ export function initializeCommands() {
 
           // 2. Run Recommendation
           if (!silent) st_echo('info', `Running World Info Recommender...`);
-          const suggestedEntries = await runWorldInfoRecommendation(params);
+          const result = await runWorldInfoRecommendation(params);
+          const suggestedEntries = result.entries;
 
           if (Object.keys(suggestedEntries).length === 0) {
             if (!silent) st_echo('info', 'AI returned no suggestions.');
@@ -571,8 +573,8 @@ export function initializeCommands() {
                   <strong>Modified Lorebooks:</strong>
                   <ul>
                   ${Array.from(modifiedWorlds)
-                    .map((world) => `<li>${world}</li>`)
-                    .join('')}
+                  .map((world) => `<li>${world}</li>`)
+                  .join('')}
                   </ul>
                 </div>
                 `);

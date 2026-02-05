@@ -3,7 +3,6 @@ import {
   STButton,
   STTextarea,
   Popup,
-  STConnectionProfileSelect,
   STInput,
 } from 'sillytavern-utils-lib/components/react';
 import {
@@ -411,7 +410,9 @@ export const ReviseSessionChat: FC<ReviseSessionChatProps> = ({
       revertUpdate: () => void,
     ) => {
       const settings = settingsManager.getSettings();
-      if (!session.profileId) {
+      const directApiConfig = settings.directApi;
+      // 检查直接 API 是否已配置
+      if (!directApiConfig?.enabled || !session.directApiPresetKey) {
         st_echo('warning', labels.noApiSelected);
         return;
       }
@@ -422,36 +423,25 @@ export const ReviseSessionChat: FC<ReviseSessionChatProps> = ({
 
       try {
         const finalMessagesForRequest: ReviseMessage[] = [];
-        const profile = globalContext.extensionSettings.connectionManager?.profiles?.find(
-          (p: any) => p.id === session.profileId,
-        );
-        // Try to get API from profile, fall back to current ST API if not set
+        // 尝试获取当前活动的 API 类型（用于 buildPrompt）
         let selectedApi: string | undefined;
 
-        if (profile?.api && globalContext.CONNECT_API_MAP[profile.api]) {
-          selectedApi = globalContext.CONNECT_API_MAP[profile.api].selected;
-        } else {
-          // Fallback: use SillyTavern's currently active API
-          console.warn(`[WorldInfoRecommender] ${labels.profileNoApi}`);
-
-          // Try to find the active API by checking which one is currently selected
-          for (const [apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP)) {
-            if (apiValue && apiValue.selected) {
-              selectedApi = apiValue.selected;
-              console.log(`[WorldInfoRecommender] ${labels.usingFallbackApi(apiKey, selectedApi)}`);
-              break;
-            }
+        // 从 CONNECT_API_MAP 中获取任意有效的 API 名称
+        for (const [_apiKey, apiValue] of Object.entries(globalContext.CONNECT_API_MAP || {})) {
+          if (apiValue && apiValue.selected) {
+            selectedApi = apiValue.selected;
+            break;
           }
-        }
-
-        if (!selectedApi) {
-          st_echo('warning', labels.noApiSelected);
-          return;
         }
 
         for (const message of messagesToSend) {
           if (message.id === CHAT_HISTORY_PLACEHOLDER_ID) {
             if (this_chid === undefined && !selected_group) continue;
+            // 如果没有有效的 API，跳过聊天历史（直接 API 模式下可能没有配置 SillyTavern 连接）
+            if (!selectedApi) {
+              console.warn('[WorldInfoRecommender] No SillyTavern API configured, skipping chat history');
+              continue;
+            }
             const prompt = await buildPrompt(selectedApi, chatContextOptions);
             if (prompt.warnings?.length) prompt.warnings.forEach((w) => st_echo('warning', w));
             finalMessagesForRequest.push(...(prompt.result as ReviseMessage[]));
@@ -500,7 +490,7 @@ export const ReviseSessionChat: FC<ReviseSessionChatProps> = ({
 
         if (session.type === 'entry') {
           const response = await makeStructuredRequest(
-            session.profileId,
+            session.directApiPresetKey,
             finalMessagesForRequest,
             EntryRevisionResponseSchema,
             REVISE_SCHEMA_NAME.ENTRY,
@@ -513,7 +503,7 @@ export const ReviseSessionChat: FC<ReviseSessionChatProps> = ({
         } else {
           // 'global'
           const response = await makeStructuredRequest(
-            session.profileId,
+            session.directApiPresetKey,
             finalMessagesForRequest,
             GlobalRevisionResponseSchema,
             REVISE_SCHEMA_NAME.GLOBAL,
@@ -712,10 +702,16 @@ export const ReviseSessionChat: FC<ReviseSessionChatProps> = ({
       <div className="popup_header">
         <h2>{session.name}</h2>
         <div className="popup_header_buttons">
-          <STConnectionProfileSelect
-            initialSelectedProfileId={session.profileId}
-            onChange={(p) => onSessionUpdate({ ...session, profileId: p?.id ?? '' })}
-          />
+          <select
+            className="text_pole"
+            value={session.directApiPresetKey}
+            onChange={(e) => onSessionUpdate({ ...session, directApiPresetKey: e.target.value })}
+            title="Direct API Preset"
+          >
+            {Object.entries(settingsManager.getSettings().directApi?.presets || {}).map(([key, preset]) => (
+              <option key={key} value={key}>{preset.name || key}</option>
+            ))}
+          </select>
           <select
             className="text_pole"
             value={session.promptEngineeringMode}

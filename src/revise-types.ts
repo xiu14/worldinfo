@@ -73,6 +73,6 @@ export interface ReviseSession {
   context: {
     mainContextTemplatePreset: string;
   };
-  profileId: string;
+  directApiPresetKey: string;  // 直接 API 预设的 key
   promptEngineeringMode: PromptEngineeringMode;
 }

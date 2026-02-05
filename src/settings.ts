@@ -296,7 +296,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
     },
   },
   directApi: {
-    enabled: false,
+    enabled: true,  // 默认启用直接 API
     currentPreset: 'default',
     presets: {
       default: {

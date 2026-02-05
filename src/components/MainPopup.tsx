@@ -1,7 +1,6 @@
 import { FC, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   STButton,
-  STConnectionProfileSelect,
   STFancyDropdown,
   STPresetSelect,
   STTextarea,
@@ -26,6 +25,7 @@ import { testDirectApiConnection, fetchModelsList } from '../direct-api.js';
 import { Character } from 'sillytavern-utils-lib/types';
 import { RegexScriptData } from 'sillytavern-utils-lib/types/regex';
 import { SuggestedEntry } from './SuggestedEntry.js';
+import { FailedParseCard } from './FailedParseCard.js';
 import * as Handlebars from 'handlebars';
 import { useForceUpdate } from '../hooks/useForceUpdate.js';
 import { SelectEntriesPopup, SelectEntriesPopupRef } from './SelectEntriesPopup.js';
@@ -169,6 +169,9 @@ type UIMessages = {
   languageSwitched: (languageLabel: string) => string;
   importSuccess: (count: number) => string;
   globalReviseApplied: string;
+  // Parse error messages
+  partialParseWarning: string;
+  parseFailedSaved: string;
 };
 
 const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
@@ -376,6 +379,8 @@ const UI_MESSAGES: Record<SupportedLanguage, UIMessages> = {
     languageSwitched: (languageLabel: string) => `Language switched to ${languageLabel}.`,
     importSuccess: (count: number) => `Imported ${count} entries for revision.`,
     globalReviseApplied: 'Changes from global revise session applied.',
+    partialParseWarning: 'Partial parse successful, but some content failed to parse. Raw content has been saved.',
+    parseFailedSaved: 'Parse failed. Raw content has been saved for manual review.',
   },
   'zh-CN': {
     needProfile: '请先选择一个连接配置。',
@@ -399,6 +404,8 @@ const UI_MESSAGES: Record<SupportedLanguage, UIMessages> = {
     languageSwitched: (languageLabel: string) => `界面语言已切换为 ${languageLabel}。`,
     importSuccess: (count: number) => `已导入 ${count} 条条目用于修改。`,
     globalReviseApplied: '全局修改的内容已应用。',
+    partialParseWarning: '部分解析成功，但有部分内容解析失败，已保留原始内容。',
+    parseFailedSaved: '解析失败，已保留原始内容供查看。',
   },
 };
 
@@ -436,6 +443,7 @@ export const MainPopup: FC = () => {
     selectedWorldNames: [],
     selectedEntryUids: {},
     regexIds: {},
+    failedParseRecords: [],
   });
   const [allWorldNames, setAllWorldNames] = useState<string[]>([]);
   const [entriesGroupByWorldName, setEntriesGroupByWorldName] = useState<Record<string, WIEntry[]>>({});
@@ -481,6 +489,7 @@ export const MainPopup: FC = () => {
           selectedWorldNames: savedSession.selectedWorldNames ?? [],
           selectedEntryUids: savedSession.selectedEntryUids ?? {},
           regexIds: savedSession.regexIds ?? {},
+          failedParseRecords: savedSession.failedParseRecords ?? [],
         };
 
         let loadedEntries: Record<string, WIEntry[]> = {};
@@ -749,7 +758,7 @@ export const MainPopup: FC = () => {
           },
         } : undefined;
 
-        const resultingEntries = await runWorldInfoRecommendation({
+        const result = await runWorldInfoRecommendation({
           profileId: settings.profileId,
           userPrompt: userPrompt,
           buildPromptOptions,
@@ -764,6 +773,25 @@ export const MainPopup: FC = () => {
           streamCallbacks,
           signal: abortController.signal,
         });
+
+        const resultingEntries = result.entries;
+        const failedRecord = result.failedRecord;
+
+        // Handle failed parse record (save it if exists)
+        if (failedRecord) {
+          setSession((prev) => {
+            // Limit to 10 failed records max
+            const MAX_FAILED_RECORDS = 10;
+            const existingRecords = prev.failedParseRecords || [];
+            const newRecords = [failedRecord, ...existingRecords].slice(0, MAX_FAILED_RECORDS);
+            return { ...prev, failedParseRecords: newRecords };
+          });
+          if (Object.keys(resultingEntries).length > 0) {
+            st_echo('warning', messages.partialParseWarning || '部分解析成功，但有部分内容解析失败，已保留原始内容。');
+          } else {
+            st_echo('error', messages.parseFailedSaved || '解析失败，已保留原始内容供查看。');
+          }
+        }
 
         if (Object.keys(resultingEntries).length > 0) {
           if (continueFrom) {
@@ -797,7 +825,7 @@ export const MainPopup: FC = () => {
               return { ...prev, suggestedEntries: newSuggested };
             });
           }
-        } else {
+        } else if (!failedRecord) {
           st_echo('warning', messages.noResults);
         }
       } catch (error: any) {
@@ -973,6 +1001,7 @@ export const MainPopup: FC = () => {
         blackListedEntries: [],
         selectedWorldNames: getAvatar() ? [...allWorldNames] : [],
         selectedEntryUids: {},
+        failedParseRecords: [],
       }));
       st_echo('success', messages.resetSuccess);
     }
@@ -993,6 +1022,13 @@ export const MainPopup: FC = () => {
       newSession.suggestedEntries = newSuggested;
       return newSession;
     });
+  };
+
+  const handleRemoveFailedRecord = (recordId: string) => {
+    setSession((prev) => ({
+      ...prev,
+      failedParseRecords: (prev.failedParseRecords || []).filter((r) => r.id !== recordId),
+    }));
   };
 
   const handleUpdateEntry = (
@@ -1244,8 +1280,8 @@ export const MainPopup: FC = () => {
                             newSettings.directApi = { ...directApiConfig };
                           }
 
-                          // Use directApiConfig (scope) as source because it contains merged defaults
-                          const preset = directApiConfig.presets?.[presetKey];
+                          // Use newSettings (fresh from settingsManager) to get the latest saved preset data
+                          const preset = newSettings.directApi.presets?.[presetKey];
 
                           if (preset) {
                             console.debug('[WorldInfoRecommender] Switching preset to:', presetKey, preset);
@@ -1494,11 +1530,7 @@ export const MainPopup: FC = () => {
                   </div>
                 </div>
               ) : (
-                <STConnectionProfileSelect
-                  initialSelectedProfileId={settings.profileId}
-                  // @ts-ignore
-                  onChange={(profile) => updateSetting('profileId', profile?.id)}
-                />
+                <p className="subtle">请勾选上方的直接 API 选项以配置连接。</p>
               )}
             </div>
             <div className="card">
@@ -1890,7 +1922,7 @@ export const MainPopup: FC = () => {
                 </STButton>
               </div>
               <div>
-                {suggestedEntriesList.length === 0 && <p>{labels.emptyStateMessage}</p>}
+                {suggestedEntriesList.length === 0 && (session.failedParseRecords || []).length === 0 && <p>{labels.emptyStateMessage}</p>}
                 {suggestedEntriesList.map(({ worldName, entry }) => (
                   <SuggestedEntry
                     key={`${worldName}-${entry.uid}-${entry.comment}`}
@@ -1906,6 +1938,15 @@ export const MainPopup: FC = () => {
                     entriesGroupByWorldName={entriesGroupByWorldName}
                     sessionForContext={session}
                     contextToSend={settings.contextToSend}
+                  />
+                ))}
+                {/* Failed Parse Records */}
+                {(session.failedParseRecords || []).map((record) => (
+                  <FailedParseCard
+                    key={record.id}
+                    record={record}
+                    language={fallbackLanguage as 'en' | 'zh-CN'}
+                    onRemove={handleRemoveFailedRecord}
                   />
                 ))}
               </div>
