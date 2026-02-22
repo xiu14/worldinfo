@@ -14234,9 +14234,9 @@ function p8(t) {
     const r = `<entry>${t}</entry>`, a = q0.parse(r).entry;
     return !a || !a.worldName ? null : {
       uid: a.id ?? G0(6),
-      key: a.triggers?.split(",").map((u) => u.trim()) ?? [],
-      content: a.content ?? "",
-      comment: a.name ?? "",
+      key: (typeof a.triggers == "string" ? a.triggers : String(a.triggers ?? "")).split(",").map((u) => u.trim()).filter(Boolean),
+      content: typeof a.content == "string" ? a.content : String(a.content ?? ""),
+      comment: typeof a.name == "string" ? a.name : String(a.name ?? ""),
       disable: !1,
       keysecondary: []
     };
@@ -14273,9 +14273,9 @@ function Z0(t, r = {}) {
       const g = f.worldName;
       g && (u[g] || (u[g] = []), u[g].push({
         uid: f.id ?? G0(6),
-        key: f.triggers?.split(",").map((v) => v.trim()) ?? [],
-        content: f.content ?? "",
-        comment: f.name ?? "",
+        key: (typeof f.triggers == "string" ? f.triggers : String(f.triggers ?? "")).split(",").map((v) => v.trim()).filter(Boolean),
+        content: typeof f.content == "string" ? f.content : String(f.content ?? ""),
+        comment: typeof f.name == "string" ? f.name : String(f.name ?? ""),
         disable: !1,
         keysecondary: []
       }));
@@ -26630,9 +26630,9 @@ const yf = SillyTavern.getContext(), t0 = "worldInfoRecommender_reviseSessions",
           }
         )
       ] }),
-      /* @__PURE__ */ T.jsx("h4", { className: "comment", children: r.comment }),
-      /* @__PURE__ */ T.jsx("div", { className: "key", children: (r.key || []).join(", ") }),
-      /* @__PURE__ */ T.jsx("p", { className: "content", dangerouslySetInnerHTML: { __html: YT.makeHtml(r.content ?? "") } }),
+      /* @__PURE__ */ T.jsx("h4", { className: "comment", children: typeof r.comment == "string" ? r.comment : String(r.comment ?? "") }),
+      /* @__PURE__ */ T.jsx("div", { className: "key", children: (Array.isArray(r.key) ? r.key : []).map((ae) => String(ae)).join(", ") }),
+      /* @__PURE__ */ T.jsx("p", { className: "content", dangerouslySetInnerHTML: { __html: YT.makeHtml(typeof r.content == "string" ? r.content : String(r.content ?? "")) } }),
       /* @__PURE__ */ T.jsx("div", { className: "continue-prompt-section", style: { marginTop: "10px" }, children: /* @__PURE__ */ T.jsx(
         Er,
         {

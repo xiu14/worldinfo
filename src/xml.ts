@@ -55,9 +55,9 @@ function tryParseEntry(entryContent: string): WIEntry | null {
 
     return {
       uid: entry.id ?? createRandomNumber(6),
-      key: entry.triggers?.split(',').map((t: string) => t.trim()) ?? [],
-      content: entry.content ?? '',
-      comment: entry.name ?? '',
+      key: (typeof entry.triggers === 'string' ? entry.triggers : String(entry.triggers ?? '')).split(',').map((t: string) => t.trim()).filter(Boolean),
+      content: typeof entry.content === 'string' ? entry.content : String(entry.content ?? ''),
+      comment: typeof entry.name === 'string' ? entry.name : String(entry.name ?? ''),
       disable: false,
       keysecondary: [],
     };
@@ -128,9 +128,9 @@ export function parseXMLOwn(xml: string, options: XmlParseOptions = {}): ParseRe
       }
       entriesByWorldName[worldName].push({
         uid: entry.id ?? createRandomNumber(6),
-        key: entry.triggers?.split(',').map((t: string) => t.trim()) ?? [],
-        content: entry.content ?? '',
-        comment: entry.name ?? '',
+        key: (typeof entry.triggers === 'string' ? entry.triggers : String(entry.triggers ?? '')).split(',').map((t: string) => t.trim()).filter(Boolean),
+        content: typeof entry.content === 'string' ? entry.content : String(entry.content ?? ''),
+        comment: typeof entry.name === 'string' ? entry.name : String(entry.name ?? ''),
         disable: false,
         keysecondary: [],
       });

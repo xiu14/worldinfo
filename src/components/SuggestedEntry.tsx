@@ -229,9 +229,9 @@ export const SuggestedEntry: FC<SuggestedEntryProps> = ({
             {labels.removeButton}
           </STButton>
         </div>
-        <h4 className="comment">{entry.comment}</h4>
-        <div className="key">{(entry.key || []).join(', ')}</div>
-        <p className="content" dangerouslySetInnerHTML={{ __html: converter.makeHtml(entry.content ?? '') }}></p>
+        <h4 className="comment">{typeof entry.comment === 'string' ? entry.comment : String(entry.comment ?? '')}</h4>
+        <div className="key">{(Array.isArray(entry.key) ? entry.key : []).map(k => String(k)).join(', ')}</div>
+        <p className="content" dangerouslySetInnerHTML={{ __html: converter.makeHtml(typeof entry.content === 'string' ? entry.content : String(entry.content ?? '')) }}></p>
         <div className="continue-prompt-section" style={{ marginTop: '10px' }}>
           <STTextarea
             value={updatePrompt}
