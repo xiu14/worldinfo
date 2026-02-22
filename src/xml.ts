@@ -1,7 +1,37 @@
 import { XMLParser } from 'fast-xml-parser';
 import { WIEntry } from 'sillytavern-utils-lib/types/world-info';
 
-const parser = new XMLParser();
+const parser = new XMLParser({
+  stopNodes: ['entry.content'],  // Prevent content from being parsed as nested XML
+  processEntities: false,
+});
+
+/**
+ * Safely convert any value to a string.
+ * Handles: string, number, boolean, null, undefined, arrays, and nested objects
+ * (which fast-xml-parser may produce when content contains XML-like tags).
+ */
+function ensureString(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(ensureString).join('\n');
+  if (typeof value === 'object') {
+    // fast-xml-parser may produce objects like { b: 'bold text', '#text': 'normal text' }
+    // Try to reconstruct readable text from the object
+    const parts: string[] = [];
+    for (const [key, val] of Object.entries(value)) {
+      const text = ensureString(val);
+      if (key === '#text') {
+        parts.push(text);
+      } else {
+        parts.push(text);
+      }
+    }
+    return parts.join('\n');
+  }
+  return String(value);
+}
 
 function createRandomNumber(length: number): number {
   const min = Math.pow(10, length - 1);
@@ -55,9 +85,9 @@ function tryParseEntry(entryContent: string): WIEntry | null {
 
     return {
       uid: entry.id ?? createRandomNumber(6),
-      key: (typeof entry.triggers === 'string' ? entry.triggers : String(entry.triggers ?? '')).split(',').map((t: string) => t.trim()).filter(Boolean),
-      content: typeof entry.content === 'string' ? entry.content : String(entry.content ?? ''),
-      comment: typeof entry.name === 'string' ? entry.name : String(entry.name ?? ''),
+      key: ensureString(entry.triggers).split(',').map((t: string) => t.trim()).filter(Boolean),
+      content: ensureString(entry.content),
+      comment: ensureString(entry.name),
       disable: false,
       keysecondary: [],
     };
@@ -128,9 +158,9 @@ export function parseXMLOwn(xml: string, options: XmlParseOptions = {}): ParseRe
       }
       entriesByWorldName[worldName].push({
         uid: entry.id ?? createRandomNumber(6),
-        key: (typeof entry.triggers === 'string' ? entry.triggers : String(entry.triggers ?? '')).split(',').map((t: string) => t.trim()).filter(Boolean),
-        content: typeof entry.content === 'string' ? entry.content : String(entry.content ?? ''),
-        comment: typeof entry.name === 'string' ? entry.name : String(entry.name ?? ''),
+        key: ensureString(entry.triggers).split(',').map((t: string) => t.trim()).filter(Boolean),
+        content: ensureString(entry.content),
+        comment: ensureString(entry.name),
         disable: false,
         keysecondary: [],
       });
