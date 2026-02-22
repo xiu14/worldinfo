@@ -567,7 +567,21 @@ export const MainPopup: FC = () => {
   useEffect(() => {
     if (isLoading) return;
     const key = `worldInfoRecommend_${avatarKey}`;
-    localStorage.setItem(key, JSON.stringify(session));
+    try {
+      localStorage.setItem(key, JSON.stringify(session));
+    } catch (e: any) {
+      console.warn('[WorldInfoRecommender] Failed to save session to localStorage:', e.message);
+      // If storage quota exceeded, try saving without failedParseRecords (which contain large rawContent)
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014) {
+        try {
+          const lightSession = { ...session, failedParseRecords: [] };
+          localStorage.setItem(key, JSON.stringify(lightSession));
+          console.warn('[WorldInfoRecommender] Saved session without failedParseRecords due to storage quota.');
+        } catch (e2) {
+          console.error('[WorldInfoRecommender] Still failed to save session after stripping failedParseRecords:', e2);
+        }
+      }
+    }
   }, [session, avatarKey, isLoading]);
 
   const updateSetting = <K extends keyof ExtensionSettings>(key: K, value: ExtensionSettings[K]) => {
@@ -779,11 +793,19 @@ export const MainPopup: FC = () => {
 
         // Handle failed parse record (save it if exists)
         if (failedRecord) {
+          // Truncate rawContent to prevent localStorage quota issues
+          const MAX_RAW_CONTENT_LENGTH = 5000;
+          const truncatedRecord = { ...failedRecord };
+          if (truncatedRecord.rawContent && truncatedRecord.rawContent.length > MAX_RAW_CONTENT_LENGTH) {
+            truncatedRecord.rawContent =
+              truncatedRecord.rawContent.slice(0, MAX_RAW_CONTENT_LENGTH) +
+              `\n\n... [已截断，原始内容共 ${failedRecord.rawContent.length} 字符]`;
+          }
           setSession((prev) => {
-            // Limit to 10 failed records max
-            const MAX_FAILED_RECORDS = 10;
+            // Limit to 5 failed records max (reduced from 10 to save storage)
+            const MAX_FAILED_RECORDS = 5;
             const existingRecords = prev.failedParseRecords || [];
-            const newRecords = [failedRecord, ...existingRecords].slice(0, MAX_FAILED_RECORDS);
+            const newRecords = [truncatedRecord, ...existingRecords].slice(0, MAX_FAILED_RECORDS);
             return { ...prev, failedParseRecords: newRecords };
           });
           if (Object.keys(resultingEntries).length > 0) {
